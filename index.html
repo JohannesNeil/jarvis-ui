@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>J.A.R.V.I.S.</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 20px auto; padding: 0 15px; background: #0f1115; color: #e5e7eb; }
+    #chat { height: 72vh; overflow-y: auto; border: 1px solid #262a33; padding: 16px; border-radius: 10px; margin-bottom: 12px; white-space: pre-wrap; background: #161920; }
+    .msg { margin-bottom: 14px; line-height: 1.55; }
+    .user { color: #60a5fa; font-weight: 500; }
+    .ai { color: #f3f4f6; }
+    .status { color: #9ca3af; font-style: italic; }
+    form { display: flex; gap: 8px; }
+    input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #374151; background: #1f242d; color: #fff; font-size: 15px; }
+    button { padding: 12px 18px; border-radius: 8px; border: none; background: #2563eb; color: #fff; font-weight: 600; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div id="chat"></div>
+  <form id="form">
+    <input id="input" placeholder="Ask anything..." autocomplete="off" required />
+    <button type="submit">Send</button>
+  </form>
+
+  <script>
+    const WORKER_URL = "https://jarvis-brain.hydroflouride4.workers.dev";
+    const passcode = prompt("Enter your assistant passcode:");
+    const chatBox = document.getElementById("chat");
+    let history = [];
+
+    function addMessage(sender, text, cssClass) {
+      const div = document.createElement("div");
+      div.className = "msg " + cssClass;
+      div.textContent = sender ? `${sender}: ${text}` : text;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return div;
+    }
+
+    document.getElementById("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("input");
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage("You", text, "user");
+      input.value = "";
+      const loadingMsg = addMessage("", "Thinking...", "status");
+
+      try {
+        const res = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, passcode, history }),
+        });
+
+        const data = await res.json();
+        loadingMsg.remove();
+        addMessage("AI", data.reply, "ai");
+
+        if (res.ok) {
+          history.push({ role: "user", parts: [{ text }] });
+          history.push({ role: "model", parts: [{ text: data.reply }] });
+        }
+      } catch (err) {
+        loadingMsg.remove();
+        addMessage("System", "Could not reach Worker. Check your connection or Worker deployment.", "status");
+      }
+    });
+  </script>
+</body>
+</html>
