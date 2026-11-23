@@ -6,10 +6,14 @@
   <title>J.A.R.V.I.S.</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 720px; margin: 20px auto; padding: 0 15px; background: #0f1115; color: #e5e7eb; }
-    #chat { height: 72vh; overflow-y: auto; border: 1px solid #262a33; padding: 16px; border-radius: 10px; margin-bottom: 12px; white-space: pre-wrap; background: #161920; }
+    #chat { height: 72vh; overflow-y: auto; border: 1px solid #262a33; padding: 16px; border-radius: 10px; margin-bottom: 12px; background: #161920; }
     .msg { margin-bottom: 14px; line-height: 1.55; }
-    .user { color: #60a5fa; font-weight: 500; }
+    .user { color: #60a5fa; font-weight: 500; white-space: pre-wrap; }
     .ai { color: #f3f4f6; }
+    .ai-msg h3 { margin: 12px 0 6px; font-size: 1.05rem; color: #60a5fa; }
+    .ai-msg code { background: #1e293b; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.92em; }
+    .ai-msg pre { background: #0b0f19; border: 1px solid #334155; padding: 12px; border-radius: 8px; overflow-x: auto; margin: 10px 0; }
+    .ai-msg pre code { background: none; padding: 0; font-size: 0.9em; }
     .status { color: #9ca3af; font-style: italic; }
     form { display: flex; gap: 8px; }
     input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #374151; background: #1f242d; color: #fff; font-size: 15px; }
@@ -30,10 +34,50 @@
     const chatBox = document.getElementById("chat");
     let history = [];
 
+    function formatReply(text) {
+      let safe = (text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      const codeBlocks = [];
+      safe = safe.replace(/```([a-zA-Z0-9_-]*)\s*\n([\s\S]*?)```/g, (_, lang, code) => {
+        const idx = codeBlocks.length;
+        codeBlocks.push(`<pre><code>${code.trim()}</code></pre>`);
+        return `__CODE_BLOCK_${idx}__`;
+      });
+
+      safe = safe
+        .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
+        .replace(/^##\s+(.+)$/gm, "<h3>$1</h3>")
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/(^|[\s(])\*([^*\s][^*\n]*?)\*(?=[\s.,;:!?)]|$)/g, "$1<em>$2</em>")
+        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+        .replace(/^\s*[\*\-]\s+(.+)$/gm, "• $1");
+
+      safe = safe
+        .replace(/\n/g, "<br>")
+        .replace(/<\/h3><br>/g, "</h3>")
+        .replace(/<br>(__CODE_BLOCK_\d+__)/g, "$1")
+        .replace(/(__CODE_BLOCK_\d+__)<br>/g, "$1");
+
+      codeBlocks.forEach((block, idx) => {
+        safe = safe.replace(`__CODE_BLOCK_${idx}__`, block);
+      });
+
+      return safe;
+    }
+
     function addMessage(sender, text, cssClass) {
       const div = document.createElement("div");
       div.className = "msg " + cssClass;
-      div.textContent = sender ? `${sender}: ${text}` : text;
+
+      if (cssClass === "ai") {
+        div.innerHTML = `<strong>${sender}:</strong> <span class="ai-msg">${formatReply(text)}</span>`;
+      } else {
+        div.textContent = sender ? `${sender}: ${text}` : text;
+      }
+
       chatBox.appendChild(div);
       chatBox.scrollTop = chatBox.scrollHeight;
       return div;
