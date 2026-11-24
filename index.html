@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#131314" />
   <title>J.A.R.V.I.S.</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
   <style>
     :root {
       --bg-main: #131314;
@@ -103,7 +104,6 @@
       gap: 14px;
     }
 
-    /* 16px font prevents automatic zoom on mobile browsers when focusing */
     .login-input {
       width: 100%;
       padding: 14px 16px;
@@ -235,7 +235,7 @@
     }
 
     .chat-container {
-      max-width: 800px;
+      max-width: 820px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -245,7 +245,7 @@
     /* Welcome / Empty State */
     #welcome-view {
       margin: auto;
-      padding: 36px 4px 20px;
+      padding: 32px 4px 20px;
       text-align: left;
       width: 100%;
     }
@@ -302,7 +302,31 @@
       animation: slideUpFade 0.28s var(--ease-spring) forwards;
     }
 
-    .msg-row.user { justify-content: flex-end; }
+    .msg-row.user {
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .user-attachment-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 7px 12px;
+      font-size: 0.82rem;
+      color: var(--accent-blue);
+      max-width: 84%;
+    }
+
+    .user-attachment-tag img {
+      max-width: 180px;
+      max-height: 140px;
+      border-radius: 10px;
+      display: block;
+    }
 
     .user-bubble {
       background: var(--bg-elevated);
@@ -371,21 +395,91 @@
       color: #a8c7fa;
     }
 
-    .ai-content pre {
+    /* Styled Code Block with Header & Copy Button */
+    .code-wrapper {
       background: #0d0e10;
       border: 1px solid var(--border-subtle);
-      padding: 13px;
       border-radius: 14px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
       margin: 12px 0;
+      overflow: hidden;
     }
 
-    .ai-content pre code {
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 13px;
+      background: #181a1f;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .copy-code-btn {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-size: 0.74rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .copy-code-btn:hover {
+      background: var(--bg-elevated);
+      border-color: var(--accent-blue);
+    }
+
+    .code-wrapper pre {
+      padding: 13px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0;
+    }
+
+    .code-wrapper pre code {
       background: none;
       padding: 0;
       color: #e3e3e3;
       font-size: 0.86em;
+      line-height: 1.5;
+    }
+
+    /* Generated Image / Vector Card */
+    .media-card {
+      margin-top: 12px;
+      background: #0d0e10;
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 10px;
+      max-width: 520px;
+    }
+
+    .media-card img, .media-card svg {
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      display: block;
+    }
+
+    .media-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    .download-media-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-blue);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      text-decoration: none;
+      cursor: pointer;
     }
 
     /* Animated 3-dot Thinking Indicator */
@@ -421,26 +515,96 @@
       flex-shrink: 0;
     }
 
-    .input-box {
-      max-width: 800px;
+    .input-shell {
+      max-width: 820px;
       margin: 0 auto;
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       border-radius: 26px;
-      padding: 6px 8px 6px 18px;
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
+      padding: 6px 8px;
       transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .input-box:focus-within {
+    .input-shell:focus-within {
       background: #232426;
       border-color: #4c5057;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
     }
 
-    /* 16px font prevents mobile browser auto-zoom on tap */
+    /* Attachment Preview Bar */
+    #attachment-preview {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 8px 12px;
+      margin: 2px 2px 6px;
+      font-size: 0.84rem;
+    }
+
+    .preview-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .preview-thumb {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .preview-name {
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .remove-attach-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.15rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      line-height: 1;
+    }
+
+    .remove-attach-btn:hover { color: var(--danger); }
+
+    .input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    #attach-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #attach-btn:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
     #prompt-input {
       flex: 1;
       background: transparent;
@@ -450,7 +614,7 @@
       font-size: 16px;
       line-height: 1.45;
       max-height: 140px;
-      padding: 7px 0;
+      padding: 8px 4px;
       resize: none;
       outline: none;
     }
@@ -548,32 +712,54 @@
       <div id="chat-container" class="chat-container">
         <div id="welcome-view">
           <div class="welcome-heading">At your service, sir.</div>
-          <div class="welcome-sub">How can I assist you today?</div>
+          <div class="welcome-sub">Analyze PPTs, diagrams, audio, video, or write code.</div>
           <div class="suggestion-row">
-            <button class="chip" type="button" data-prompt="What is the current weather in Metro Manila?">Metro Manila weather</button>
-            <button class="chip" type="button" data-prompt="Summarize my saved projects and lessons">Review saved memory</button>
-            <button class="chip" type="button" data-prompt="Explain linear search vs binary search simply">Compare search algorithms</button>
+            <button class="chip" type="button" data-prompt="Draw a clean diagram of client-server network architecture">Draw network diagram</button>
+            <button class="chip" type="button" data-prompt="Write a clean C# console program for binary search with comments">Generate clean C# code</button>
+            <button class="chip" type="button" data-prompt="What is the weather for today?">Quezon City weather</button>
           </div>
         </div>
       </div>
     </main>
 
     <div class="input-dock">
-      <form id="chat-form" class="input-box">
-        <textarea
-          id="prompt-input"
-          rows="1"
-          placeholder="Ask J.A.R.V.I.S. anything..."
-          required
-        ></textarea>
-        <button id="send-btn" type="submit" aria-label="Send">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="19" x2="12" y2="5"></line>
-            <polyline points="5 12 12 5 19 12"></polyline>
-          </svg>
-        </button>
+      <form id="chat-form" class="input-shell">
+        <div id="attachment-preview" class="hidden">
+          <div class="preview-info">
+            <img id="preview-thumb" class="preview-thumb hidden" alt="Preview" />
+            <span id="preview-name" class="preview-name"></span>
+          </div>
+          <button id="remove-attach-btn" class="remove-attach-btn" type="button" aria-label="Remove attachment">&times;</button>
+        </div>
+
+        <div class="input-row">
+          <input
+            id="file-input"
+            type="file"
+            class="hidden"
+            accept="image/*,audio/*,video/*,.pdf,.pptx,.docx,.txt,.csv,.cs,.java,.py,.sql,.js,.html,.json"
+          />
+          <button id="attach-btn" type="button" title="Attach PPTX, image, audio, video, PDF, or code" aria-label="Attach file">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+          </button>
+
+          <textarea
+            id="prompt-input"
+            rows="1"
+            placeholder="Ask J.A.R.V.I.S. or attach PPTX, audio, video, image..."
+          ></textarea>
+
+          <button id="send-btn" type="submit" aria-label="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"></line>
+              <polyline points="5 12 12 5 19 12"></polyline>
+            </svg>
+          </button>
+        </div>
       </form>
-      <div class="footer-hint">J.A.R.V.I.S. can make mistakes. Verify critical code and data.</div>
+      <div class="footer-hint">Supports large PPTX (including image-only slides &amp; diagrams), audio, video, PDF &amp; code.</div>
     </div>
   </section>
 
@@ -595,9 +781,18 @@
     const promptInput = document.getElementById("prompt-input");
     const sendBtn = document.getElementById("send-btn");
 
+    const fileInput = document.getElementById("file-input");
+    const attachBtn = document.getElementById("attach-btn");
+    const attachmentPreview = document.getElementById("attachment-preview");
+    const previewThumb = document.getElementById("preview-thumb");
+    const previewName = document.getElementById("preview-name");
+    const removeAttachBtn = document.getElementById("remove-attach-btn");
+
     let activePasscode = localStorage.getItem(STORAGE_KEY) || "";
     let history = [];
     let isSending = false;
+    let isProcessingFile = false;
+    let pendingAttachment = null;
 
     const SPARK_ICON = `
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -609,6 +804,16 @@
       requestAnimationFrame(() => {
         chatScroll.scrollTop = chatScroll.scrollHeight;
       });
+    }
+
+    function clearAttachment() {
+      pendingAttachment = null;
+      isProcessingFile = false;
+      sendBtn.disabled = false;
+      fileInput.value = "";
+      previewThumb.src = "";
+      previewThumb.classList.add("hidden");
+      attachmentPreview.classList.add("hidden");
     }
 
     function showApp() {
@@ -627,6 +832,7 @@
 
     function resetChatUI() {
       history = [];
+      clearAttachment();
       chatContainer.innerHTML = "";
       chatContainer.appendChild(welcomeView);
       welcomeView.classList.remove("hidden");
@@ -639,7 +845,6 @@
       showLogin(reason);
     }
 
-    // Keep login/logout synchronized across all open tabs
     window.addEventListener("storage", (e) => {
       if (e.key === STORAGE_KEY) {
         if (!e.newValue) {
@@ -653,23 +858,18 @@
       }
     });
 
-    // Smoothly keep latest messages visible when mobile keyboard opens
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", () => {
-        if (!appScreen.classList.contains("hidden")) {
-          scrollToBottom();
-        }
+        if (!appScreen.classList.contains("hidden")) scrollToBottom();
       });
     }
 
-    // Check existing session on load
     if (activePasscode) {
       showApp();
     } else {
       showLogin();
     }
 
-    // Handle Login Verification against Worker
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const candidate = passcodeInput.value.trim();
@@ -704,11 +904,378 @@
       }
     });
 
-    // Header buttons
     document.getElementById("new-chat-btn").addEventListener("click", resetChatUI);
     document.getElementById("logout-btn").addEventListener("click", () => logoutUser());
 
-    // Safe Markdown formatter
+    // ================= MEDIA & DEEP PPTX PROCESSING =================
+    attachBtn.addEventListener("click", () => {
+      if (!isProcessingFile) fileInput.click();
+    });
+    removeAttachBtn.addEventListener("click", clearAttachment);
+
+    function inferMimeType(file) {
+      if (file.type) return file.type;
+      const ext = file.name.split(".").pop().toLowerCase();
+      const map = {
+        mp3: "audio/mpeg",
+        m4a: "audio/mp4",
+        wav: "audio/wav",
+        ogg: "audio/ogg",
+        aac: "audio/aac",
+        flac: "audio/flac",
+        mp4: "video/mp4",
+        webm: "video/webm",
+        mov: "video/quicktime",
+        mkv: "video/x-matroska",
+        pdf: "application/pdf",
+        png: "image/png",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        webp: "image/webp",
+      };
+      return map[ext] || "application/octet-stream";
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result || "";
+          const base64 = result.split(",")[1];
+          resolve({ base64, dataUrl: result });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Compresses image blobs via Canvas so slides & mobile camera photos upload fast while keeping text sharp
+    function compressImageBlob(blob, maxDim = 1280, quality = 0.82) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          // Skip tiny decorative icons/bullets (< 75x75 px)
+          if (img.width < 75 || img.height < 75) {
+            resolve(null);
+            return;
+          }
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          // Fill white background in case PNG has transparency over dark text
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          resolve({
+            base64: dataUrl.split(",")[1],
+            dataUrl,
+            mimeType: "image/jpeg",
+          });
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        img.src = url;
+      });
+    }
+
+    // Extracts BOTH native XML text/notes AND embedded slide images/diagrams from large PPTX files
+    async function extractPptxDeep(file, onProgress) {
+      if (!window.JSZip) throw new Error("PPTX parser still loading. Please try again in a second.");
+      const zip = await JSZip.loadAsync(file);
+
+      const slideFiles = Object.keys(zip.files)
+        .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+        .sort((a, b) => {
+          const numA = parseInt(a.match(/slide(\d+)\.xml/i)[1], 10);
+          const numB = parseInt(b.match(/slide(\d+)\.xml/i)[1], 10);
+          return numA - numB;
+        });
+
+      const slidesData = [];
+      const mediaUsageCount = {};
+
+      // Pass 1: Extract XML text, speaker notes, and slide-to-image relationships
+      for (let i = 0; i < slideFiles.length; i++) {
+        const path = slideFiles[i];
+        const slideNum = path.match(/slide(\d+)\.xml/i)[1];
+        if (onProgress) onProgress(`Scanning Slide ${slideNum} of ${slideFiles.length}...`);
+
+        const xmlStr = await zip.files[path].async("string");
+        const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
+        const textNodes = Array.from(doc.getElementsByTagName("a:t"));
+        const slideText = textNodes.map((n) => n.textContent).join(" ").replace(/\s+/g, " ").trim();
+
+        // Check speaker notes if present
+        let notesText = "";
+        const notesFile = zip.files[`ppt/notesSlides/notesSlide${slideNum}.xml`];
+        if (notesFile) {
+          const notesXml = await notesFile.async("string");
+          const notesDoc = new DOMParser().parseFromString(notesXml, "application/xml");
+          notesText = Array.from(notesDoc.getElementsByTagName("a:t"))
+            .map((n) => n.textContent)
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        // Map embedded images on this slide via .rels
+        const relsFile = zip.files[`ppt/slides/_rels/slide${slideNum}.xml.rels`];
+        const imagePaths = [];
+        if (relsFile) {
+          const relsXml = await relsFile.async("string");
+          const relsDoc = new DOMParser().parseFromString(relsXml, "application/xml");
+          const rels = Array.from(relsDoc.getElementsByTagName("Relationship"));
+          for (const rel of rels) {
+            const type = rel.getAttribute("Type") || "";
+            const target = rel.getAttribute("Target") || "";
+            if (type.endsWith("/image") && target) {
+              const normalized = target.replace(/^\.\.\//, "ppt/");
+              if (zip.files[normalized] && /\.(png|jpe?g|gif|webp|bmp)$/i.test(normalized)) {
+                imagePaths.push(normalized);
+                mediaUsageCount[normalized] = (mediaUsageCount[normalized] || 0) + 1;
+              }
+            }
+          }
+        }
+
+        slidesData.push({
+          slideNum: parseInt(slideNum, 10),
+          text: slideText,
+          notes: notesText,
+          imagePaths: [...new Set(imagePaths)],
+        });
+      }
+
+      // Pass 2: Prioritize image-only / low-text slides & diagram slides, skipping repeated template logos
+      const prioritizedSlides = [...slidesData].sort((a, b) => {
+        const aIsVisualOnly = a.text.length < 40 && a.imagePaths.length > 0 ? 0 : 1;
+        const bIsVisualOnly = b.text.length < 40 && b.imagePaths.length > 0 ? 0 : 1;
+        if (aIsVisualOnly !== bIsVisualOnly) return aIsVisualOnly - bIsVisualOnly;
+        return a.slideNum - b.slideNum;
+      });
+
+      const extractedImages = [];
+      const seenMedia = new Set();
+      const MAX_SLIDE_IMAGES = 28;
+
+      for (const slide of prioritizedSlides) {
+        if (extractedImages.length >= MAX_SLIDE_IMAGES) break;
+        for (const imgPath of slide.imagePaths) {
+          if (extractedImages.length >= MAX_SLIDE_IMAGES) break;
+          // Skip background watermarks/logos repeated on more than 4 slides
+          if (mediaUsageCount[imgPath] > 4) continue;
+          if (seenMedia.has(imgPath)) continue;
+          seenMedia.add(imgPath);
+
+          if (onProgress) {
+            onProgress(`Reading visuals from Slide ${slide.slideNum} (${extractedImages.length + 1})...`);
+          }
+          const blob = await zip.files[imgPath].async("blob");
+          if (blob.size < 3500) continue; // Skip tiny <3.5KB icons
+          const compressed = await compressImageBlob(blob, 1280, 0.82);
+          if (compressed) {
+            extractedImages.push({
+              slideNum: slide.slideNum,
+              slideLabel: `Slide ${slide.slideNum}`,
+              mimeType: compressed.mimeType,
+              data: compressed.base64,
+            });
+          }
+        }
+      }
+
+      // Sort extracted visuals back into chronological slide order
+      extractedImages.sort((a, b) => a.slideNum - b.slideNum);
+
+      const textSummary = slidesData
+        .map((s) => {
+          const parts = [`[Slide ${s.slideNum}]`];
+          if (s.text) parts.push(s.text);
+          else if (s.imagePaths.length > 0) parts.push("(Visual/Image-only slide — see attached slide image)");
+          if (s.notes) parts.push(`Speaker Notes: ${s.notes}`);
+          return parts.join("\n");
+        })
+        .join("\n\n");
+
+      return {
+        slideCount: slidesData.length,
+        slidesText: textSummary,
+        slideImages: extractedImages,
+      };
+    }
+
+    async function extractDocxText(file) {
+      if (!window.JSZip) throw new Error("DOCX parser still loading. Try again in a second.");
+      const zip = await JSZip.loadAsync(file);
+      const docXml = zip.files["word/document.xml"];
+      if (!docXml) return "No readable text found in document.";
+      const xmlStr = await docXml.async("string");
+      const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
+      const paras = Array.from(doc.getElementsByTagName("w:p")).map((p) =>
+        Array.from(p.getElementsByTagName("w:t"))
+          .map((t) => t.textContent)
+          .join("")
+      );
+      return paras.filter(Boolean).join("\n");
+    }
+
+    async function uploadLargeMediaToGemini(file, mimeType) {
+      const res = await fetch(`${WORKER_URL}/upload`, {
+        method: "POST",
+        headers: {
+          "X-Passcode": activePasscode,
+          "X-Mime-Type": mimeType,
+          "X-File-Name": encodeURIComponent(file.name),
+        },
+        body: file,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.fileUri) {
+        throw new Error(data.error || `Upload failed (${res.status})`);
+      }
+      return data;
+    }
+
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const maxBytes = 95 * 1024 * 1024; // 95 MB ceiling (supports large PPTX, audio & video)
+      if (file.size > maxBytes) {
+        alert("Please select a file under 95 MB.");
+        fileInput.value = "";
+        return;
+      }
+
+      isProcessingFile = true;
+      sendBtn.disabled = true;
+
+      const lowerName = file.name.toLowerCase();
+      const mimeType = inferMimeType(file);
+      previewName.textContent = `Processing ${file.name}...`;
+      previewThumb.classList.add("hidden");
+      attachmentPreview.classList.remove("hidden");
+
+      try {
+        if (lowerName.endsWith(".pptx")) {
+          const pptxResult = await extractPptxDeep(file, (statusMsg) => {
+            previewName.textContent = statusMsg;
+          });
+          pendingAttachment = {
+            type: "pptx",
+            name: file.name,
+            slideCount: pptxResult.slideCount,
+            slidesText: pptxResult.slidesText,
+            slideImages: pptxResult.slideImages,
+            badgeText: `PPTX: ${file.name} (${pptxResult.slideCount} slides, ${pptxResult.slideImages.length} visuals)`,
+          };
+          previewName.textContent = pendingAttachment.badgeText;
+        } else if (lowerName.endsWith(".docx")) {
+          const textContent = await extractDocxText(file);
+          pendingAttachment = {
+            type: "text",
+            name: file.name,
+            content: textContent,
+            badgeText: `Word Doc: ${file.name}`,
+          };
+          previewName.textContent = pendingAttachment.badgeText;
+        } else if (mimeType.startsWith("image/")) {
+          // Compress large camera photos cleanly for fast mobile upload
+          const compressed = await compressImageBlob(file, 1600, 0.88);
+          if (compressed) {
+            pendingAttachment = {
+              type: "inline",
+              mimeType: compressed.mimeType,
+              data: compressed.base64,
+              name: file.name,
+              previewUrl: compressed.dataUrl,
+              badgeText: `Image: ${file.name}`,
+            };
+          } else {
+            const { base64, dataUrl } = await fileToBase64(file);
+            pendingAttachment = {
+              type: "inline",
+              mimeType,
+              data: base64,
+              name: file.name,
+              previewUrl: dataUrl,
+              badgeText: `Image: ${file.name}`,
+            };
+          }
+          previewName.textContent = file.name;
+          previewThumb.src = pendingAttachment.previewUrl;
+          previewThumb.classList.remove("hidden");
+        } else if (
+          mimeType.startsWith("audio/") ||
+          mimeType.startsWith("video/") ||
+          mimeType === "application/pdf"
+        ) {
+          const inlineLimit = 10 * 1024 * 1024; // 10 MB inline threshold; larger streams to Gemini File API
+          const kindLabel = mimeType.startsWith("audio/")
+            ? "Audio"
+            : mimeType.startsWith("video/")
+            ? "Video"
+            : "PDF";
+
+          if (file.size <= inlineLimit) {
+            const { base64 } = await fileToBase64(file);
+            pendingAttachment = {
+              type: "inline",
+              mimeType,
+              data: base64,
+              name: file.name,
+              badgeText: `${kindLabel}: ${file.name}`,
+            };
+          } else {
+            previewName.textContent = `Uploading large ${kindLabel.toLowerCase()} (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`;
+            const uploaded = await uploadLargeMediaToGemini(file, mimeType);
+            pendingAttachment = {
+              type: "file_uri",
+              mimeType: uploaded.mimeType,
+              fileUri: uploaded.fileUri,
+              name: file.name,
+              badgeText: `${kindLabel}: ${file.name}`,
+            };
+          }
+          previewName.textContent = pendingAttachment.badgeText;
+        } else {
+          // Code files (.cs, .java, .py, .sql, .js, .html, .txt, .csv)
+          const textContent = await file.text();
+          pendingAttachment = {
+            type: "text",
+            name: file.name,
+            content: textContent,
+            badgeText: `File: ${file.name}`,
+          };
+          previewName.textContent = pendingAttachment.badgeText;
+        }
+      } catch (err) {
+        alert(err.message || "Could not process that file.");
+        clearAttachment();
+      } finally {
+        isProcessingFile = false;
+        sendBtn.disabled = false;
+      }
+    });
+
+    // ================= FORMATTING & CODE COPY =================
     function formatReply(text) {
       let safe = (text || "")
         .replace(/&/g, "&amp;")
@@ -716,9 +1283,18 @@
         .replace(/>/g, "&gt;");
 
       const codeBlocks = [];
-      safe = safe.replace(/```([a-zA-Z0-9_-]*)\s*\n([\s\S]*?)```/g, (_, lang, code) => {
+      safe = safe.replace(/```([a-zA-Z0-9_+-]*)\s*\n([\s\S]*?)```/g, (_, lang, code) => {
         const idx = codeBlocks.length;
-        codeBlocks.push(`<pre><code>${code.trim()}</code></pre>`);
+        const label = lang ? lang : "code";
+        codeBlocks.push(`
+          <div class="code-wrapper">
+            <div class="code-header">
+              <span>${label}</span>
+              <button class="copy-code-btn" type="button" onclick="copyCodeBlock(this)">Copy</button>
+            </div>
+            <pre><code>${code.trim()}</code></pre>
+          </div>
+        `);
         return `__CODE_BLOCK_${idx}__`;
       });
 
@@ -743,14 +1319,40 @@
       return safe;
     }
 
-    function appendUserMessage(text) {
+    window.copyCodeBlock = function (btn) {
+      const codeEl = btn.closest(".code-wrapper").querySelector("code");
+      if (!codeEl) return;
+      navigator.clipboard.writeText(codeEl.innerText).then(() => {
+        btn.textContent = "Copied!";
+        setTimeout(() => (btn.textContent = "Copy"), 1600);
+      });
+    };
+
+    function appendUserMessage(text, attachmentObj) {
       welcomeView.classList.add("hidden");
       const row = document.createElement("div");
       row.className = "msg-row user";
-      const bubble = document.createElement("div");
-      bubble.className = "user-bubble";
-      bubble.textContent = text;
-      row.appendChild(bubble);
+
+      if (attachmentObj) {
+        const tag = document.createElement("div");
+        tag.className = "user-attachment-tag";
+        if (attachmentObj.previewUrl) {
+          const img = document.createElement("img");
+          img.src = attachmentObj.previewUrl;
+          tag.appendChild(img);
+        } else {
+          tag.textContent = attachmentObj.badgeText || `Attached: ${attachmentObj.name}`;
+        }
+        row.appendChild(tag);
+      }
+
+      if (text) {
+        const bubble = document.createElement("div");
+        bubble.className = "user-bubble";
+        bubble.textContent = text;
+        row.appendChild(bubble);
+      }
+
       chatContainer.appendChild(row);
       scrollToBottom();
     }
@@ -767,12 +1369,38 @@
       return row;
     }
 
-    function appendAIMessage(replyText) {
+    function appendAIMessage(data) {
       const row = document.createElement("div");
       row.className = "msg-row ai";
+
+      let mediaHtml = "";
+      if (data.generatedImage) {
+        mediaHtml = `
+          <div class="media-card">
+            <img src="${data.generatedImage}" alt="Generated illustration" />
+            <div class="media-actions">
+              <a class="download-media-btn" href="${data.generatedImage}" download="jarvis-illustration.png">Download Image</a>
+            </div>
+          </div>
+        `;
+      } else if (data.generatedSvg) {
+        const svgBlobUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(data.generatedSvg);
+        mediaHtml = `
+          <div class="media-card">
+            ${data.generatedSvg}
+            <div class="media-actions">
+              <a class="download-media-btn" href="${svgBlobUrl}" download="jarvis-diagram.svg">Download SVG</a>
+            </div>
+          </div>
+        `;
+      }
+
       row.innerHTML = `
         <div class="ai-avatar">${SPARK_ICON}</div>
-        <div class="ai-content">${formatReply(replyText)}</div>
+        <div class="ai-content">
+          ${formatReply(data.reply)}
+          ${mediaHtml}
+        </div>
       `;
       chatContainer.appendChild(row);
       scrollToBottom();
@@ -780,21 +1408,43 @@
 
     async function sendPrompt(text) {
       const cleanText = text.trim();
-      if (!cleanText || isSending || !activePasscode) return;
+      if ((!cleanText && !pendingAttachment) || isSending || isProcessingFile || !activePasscode) return;
 
       isSending = true;
       sendBtn.disabled = true;
-      appendUserMessage(cleanText);
+
+      const currentAttachment = pendingAttachment;
+      appendUserMessage(cleanText, currentAttachment);
       promptInput.value = "";
       promptInput.style.height = "auto";
+      clearAttachment();
 
       const loader = appendThinkingIndicator();
+
+      const payloadAttachment = currentAttachment
+        ? {
+            type: currentAttachment.type,
+            mimeType: currentAttachment.mimeType,
+            data: currentAttachment.data,
+            fileUri: currentAttachment.fileUri,
+            content: currentAttachment.content,
+            name: currentAttachment.name,
+            slideCount: currentAttachment.slideCount,
+            slidesText: currentAttachment.slidesText,
+            slideImages: currentAttachment.slideImages,
+          }
+        : null;
 
       try {
         const res = await fetch(WORKER_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: cleanText, passcode: activePasscode, history }),
+          body: JSON.stringify({
+            message: cleanText,
+            passcode: activePasscode,
+            history,
+            attachment: payloadAttachment,
+          }),
         });
 
         if (res.status === 401) {
@@ -805,15 +1455,20 @@
 
         const data = await res.json();
         loader.remove();
-        appendAIMessage(data.reply);
+        appendAIMessage(data);
 
         if (res.ok) {
-          history.push({ role: "user", parts: [{ text: cleanText }] });
+          const historyNote = currentAttachment
+            ? `${cleanText || "Analyze this file"} [${currentAttachment.badgeText || currentAttachment.name}]`
+            : cleanText;
+          history.push({ role: "user", parts: [{ text: historyNote }] });
           history.push({ role: "model", parts: [{ text: data.reply }] });
         }
       } catch (err) {
         loader.remove();
-        appendAIMessage("Could not reach J.A.R.V.I.S. core, sir. Please check your connection.");
+        appendAIMessage({
+          reply: "Could not reach J.A.R.V.I.S. core, sir. Please check your connection and try again.",
+        });
       } finally {
         isSending = false;
         sendBtn.disabled = false;
@@ -826,7 +1481,6 @@
       sendPrompt(promptInput.value);
     });
 
-    // Auto-resize textarea & submit on Enter on desktop (Enter adds newline on mobile)
     promptInput.addEventListener("input", () => {
       promptInput.style.height = "auto";
       promptInput.style.height = Math.min(promptInput.scrollHeight, 140) + "px";
@@ -840,7 +1494,6 @@
       }
     });
 
-    // Quick-prompt chips on the welcome screen
     document.querySelectorAll(".chip").forEach((chip) => {
       chip.addEventListener("click", () => {
         sendPrompt(chip.getAttribute("data-prompt"));
