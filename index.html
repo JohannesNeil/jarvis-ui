@@ -401,7 +401,7 @@
 
     .drawer-backdrop.active { display: block; }
 
-    /* ================= LEFT SIDEBAR (ORGANIZED & UNCROWDED) ================= */
+    /* ================= LEFT SIDEBAR ================= */
     #left-sidebar {
       width: 264px;
       background: var(--bg-sidebar);
@@ -638,7 +638,6 @@
     .conv-item:hover .conv-del-btn { opacity: 1; }
     .conv-del-btn:hover { color: var(--danger); }
 
-    /* Sidebar Footer with Theme, Server Settings & Logout */
     .sidebar-footer {
       padding: 10px 12px;
       border-top: 1px solid var(--border-hairline);
@@ -686,7 +685,7 @@
       flex-shrink: 0;
     }
 
-    /* ================= CENTER WORKSPACE PANE (GEMINI MOBILE STYLE) ================= */
+    /* ================= CENTER WORKSPACE PANE ================= */
     .center-pane {
       flex: 1;
       min-width: 0;
@@ -741,6 +740,23 @@
       background: var(--amber-primary);
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--emerald);
+      display: inline-block;
+    }
+
+    .sync-dot.syncing { background: var(--amber-primary); }
+    .sync-dot.offline { background: var(--danger); }
+
     .header-pill-btn {
       height: 30px;
       padding: 0 11px;
@@ -769,7 +785,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* ================= CHAT STREAM & CLEAN EMPTY STATE ================= */
+    /* ================= CHAT STREAM & EMPTY STATE ================= */
     #chat-scroll {
       flex: 1;
       overflow-y: auto;
@@ -811,7 +827,6 @@
       margin-bottom: 20px;
     }
 
-    /* Slim Horizontal Chips (No bulky widgets) */
     .chip-strip {
       display: flex;
       flex-wrap: wrap;
@@ -849,7 +864,7 @@
 
     .chip-dot.amber { background: var(--amber-primary); }
 
-    /* Message Bubbles (Isolated block layout for clean mobile selection) */
+    /* Message Bubbles */
     .msg-row.user {
       display: flex;
       flex-direction: column;
@@ -935,13 +950,8 @@
       contain: layout style;
     }
 
-    .ai-content p {
-      margin: 0 0 10px;
-    }
-
-    .ai-content p:last-child {
-      margin-bottom: 0;
-    }
+    .ai-content p { margin: 0 0 10px; }
+    .ai-content p:last-child { margin-bottom: 0; }
 
     .ai-content h3 {
       margin: 14px 0 6px;
@@ -952,13 +962,8 @@
 
     .ai-content h3:first-child { margin-top: 0; }
 
-    .ai-content ul, .ai-content ol {
-      margin: 6px 0 10px 20px;
-    }
-
-    .ai-content li {
-      margin-bottom: 4px;
-    }
+    .ai-content ul, .ai-content ol { margin: 6px 0 10px 20px; }
+    .ai-content li { margin-bottom: 4px; }
 
     .ai-content blockquote {
       border-left: 3px solid var(--blue-primary);
@@ -1106,7 +1111,7 @@
       40% { opacity: 1; transform: scale(1); }
     }
 
-    /* ================= COMPACT GEMINI-STYLE PILL COMPOSER ================= */
+    /* ================= COMPACT PILL COMPOSER ================= */
     .input-dock {
       padding: 6px 14px calc(12px + env(safe-area-inset-bottom));
       flex-shrink: 0;
@@ -1409,6 +1414,7 @@
       border-radius: 999px;
       background: var(--blue-soft);
       color: var(--blue-primary);
+      text-transform: capitalize;
     }
 
     .badge.amber { background: var(--amber-soft); color: var(--amber-primary); }
@@ -1573,8 +1579,8 @@
   <div id="server-modal" class="modal-backdrop centered hidden">
     <div class="dialog-card">
       <h2>Backend API Endpoint</h2>
-      <p>Enter your J.A.R.V.I.S. cloud worker or backend URL (for example, <code>https://your-worker.workers.dev</code>).</p>
-      <input id="server-url-input" class="login-input" type="url" placeholder="https://..." />
+      <p>Your J.A.R.V.I.S. Cloudflare Worker endpoint URL:</p>
+      <input id="server-url-input" class="login-input" type="url" placeholder="https://jarvis-brain.hydroflouride4.workers.dev" />
       <div class="select-sheet-actions" style="justify-content: flex-end;">
         <button id="server-close-btn" class="sheet-btn" type="button">Cancel</button>
         <button id="server-save-btn" class="sheet-btn primary" type="button">Save URL</button>
@@ -1759,15 +1765,20 @@
           </span>
         </div>
 
-        <button id="toggle-right-btn" class="header-pill-btn" type="button">
-          Workspace
-          <span id="hub-total-count" class="hub-count-pill">0</span>
-        </button>
+        <div class="header-right">
+          <button id="sync-now-btn" class="subtle-icon-btn" type="button" title="Cloud Sync Status">
+            <span id="sync-dot" class="sync-dot"></span>
+          </button>
+          <button id="toggle-right-btn" class="header-pill-btn" type="button">
+            Workspace
+            <span id="hub-total-count" class="hub-count-pill">0</span>
+          </button>
+        </div>
       </header>
 
       <div id="chat-scroll">
         <div class="chat-container">
-          <!-- CLEAN EMPTY STATE (NO BULKY WIDGETS) -->
+          <!-- CLEAN EMPTY STATE -->
           <div id="welcome-view">
             <h1 class="welcome-heading">At your service, sir.</h1>
             <p class="welcome-sub">Ask anything, analyze slides and snips, or query your study vault.</p>
@@ -1864,6 +1875,7 @@
               <option value="Class">Class</option>
               <option value="Deadline">Deadline</option>
               <option value="Exam">Exam</option>
+              <option value="Project">Project</option>
             </select>
           </div>
           <button class="hub-submit-btn" type="submit">Add to Schedule</button>
@@ -1884,8 +1896,9 @@
           <div class="hub-row">
             <input id="todo-text" class="hub-input" type="text" placeholder="New task..." required />
             <select id="todo-priority" class="hub-select" style="max-width: 96px;">
-              <option value="Normal">Normal</option>
-              <option value="High">High</option>
+              <option value="medium">Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
             </select>
           </div>
           <button class="hub-submit-btn" type="submit">Add Task</button>
@@ -1923,21 +1936,32 @@
 
   <script>
     /* ================= STATE & STORAGE ================= */
+    const DEFAULT_WORKER_URL = "https://jarvis-brain.hydroflouride4.workers.dev";
+
     const STORAGE_KEYS = {
       apiUrl: "jarvis_api_url",
-      token: "jarvis_auth_token",
+      passcode: "jarvis_passcode",
       theme: "jarvis_theme",
-      conversations: "jarvis_conversations_v2",
-      activeConvId: "jarvis_active_conv_v2",
-      schedule: "jarvis_schedule_v2",
-      todos: "jarvis_todos_v2",
-      notes: "jarvis_notes_v2",
-      vault: "jarvis_vault_v2"
+      conversations: "jarvis_conversations_v3",
+      activeConvId: "jarvis_active_conv_v3",
+      schedule: "jarvis_schedule_v3",
+      todos: "jarvis_todos_v3",
+      notes: "jarvis_notes_v3",
+      vault: "jarvis_vault_v3"
     };
 
+    function resolveInitialApiUrl() {
+      const saved = (localStorage.getItem(STORAGE_KEYS.apiUrl) || "").trim();
+      if (!saved || saved.includes("dash.cloudflare.com")) {
+        localStorage.setItem(STORAGE_KEYS.apiUrl, DEFAULT_WORKER_URL);
+        return DEFAULT_WORKER_URL;
+      }
+      return saved;
+    }
+
     const state = {
-      apiUrl: localStorage.getItem(STORAGE_KEYS.apiUrl) || "https://jarvis-brain.hydroflouride4.workers.dev",
-      token: localStorage.getItem(STORAGE_KEYS.token) || "",
+      apiUrl: resolveInitialApiUrl(),
+      passcode: localStorage.getItem(STORAGE_KEYS.passcode) || localStorage.getItem("jarvis_auth_token") || "",
       theme: localStorage.getItem(STORAGE_KEYS.theme) || "dark",
       conversations: [],
       activeConvId: localStorage.getItem(STORAGE_KEYS.activeConvId) || "",
@@ -1965,7 +1989,7 @@
       }
     }
 
-    function persistAll() {
+    function persistLocal() {
       localStorage.setItem(STORAGE_KEYS.conversations, JSON.stringify(state.conversations));
       localStorage.setItem(STORAGE_KEYS.activeConvId, state.activeConvId);
       localStorage.setItem(STORAGE_KEYS.schedule, JSON.stringify(state.schedule));
@@ -1973,6 +1997,104 @@
       localStorage.setItem(STORAGE_KEYS.notes, JSON.stringify(state.notes));
       localStorage.setItem(STORAGE_KEYS.vault, JSON.stringify(state.vault));
       updateCounts();
+    }
+
+    /* ================= CLOUD WORKSPACE SYNC (/workspace) ================= */
+    function setSyncStatus(status) {
+      const dot = $("sync-dot");
+      if (!dot) return;
+      dot.className = "sync-dot" + (status === "syncing" ? " syncing" : status === "offline" ? " offline" : "");
+    }
+
+    async function pullCloudWorkspace() {
+      if (!state.passcode) return false;
+      const base = state.apiUrl.replace(/\/+$/, "");
+      setSyncStatus("syncing");
+      try {
+        const res = await fetch(`${base}/workspace`, {
+          method: "GET",
+          headers: { "X-Passcode": state.passcode }
+        });
+        if (res.status === 401) {
+          setSyncStatus("offline");
+          return "unauthorized";
+        }
+        if (!res.ok) {
+          setSyncStatus("offline");
+          return false;
+        }
+        const data = await res.json();
+        if (Array.isArray(data.schedule)) state.schedule = data.schedule;
+        if (Array.isArray(data.todos)) state.todos = data.todos;
+        if (Array.isArray(data.notes)) state.notes = data.notes;
+        if (Array.isArray(data.conversations) && data.conversations.length) {
+          state.conversations = data.conversations;
+          if (!state.conversations.some((c) => c.id === state.activeConvId)) {
+            state.activeConvId = state.conversations[0].id;
+          }
+        }
+        persistLocal();
+        renderAllViews();
+        setSyncStatus("online");
+        return true;
+      } catch {
+        setSyncStatus("offline");
+        return false;
+      }
+    }
+
+    let syncTimer = null;
+    function scheduleCloudSync() {
+      persistLocal();
+      if (!state.passcode) return;
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(pushCloudWorkspace, 800);
+    }
+
+    async function pushCloudWorkspace() {
+      if (!state.passcode) return;
+      const base = state.apiUrl.replace(/\/+$/, "");
+      setSyncStatus("syncing");
+      try {
+        const compactConversations = state.conversations.slice(0, 30).map((c) => ({
+          id: c.id,
+          title: c.title,
+          updatedAt: c.updatedAt,
+          messages: (c.messages || [])
+            .filter((m) => !m.pending)
+            .slice(-30)
+            .map((m) => ({
+              id: m.id,
+              role: m.role,
+              text: m.text || "",
+              attachment: m.attachment ? { name: m.attachment.name, type: m.attachment.type } : null
+            }))
+        }));
+
+        const payload = {
+          schedule: state.schedule,
+          todos: state.todos,
+          notes: state.notes,
+          conversations: compactConversations,
+          vaultCatalog: state.vault.map((v) => ({
+            id: v.id,
+            name: v.name,
+            detail: `${v.content.length.toLocaleString()} chars`
+          }))
+        };
+
+        const res = await fetch(`${base}/workspace`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Passcode": state.passcode
+          },
+          body: JSON.stringify(payload)
+        });
+        setSyncStatus(res.ok ? "online" : "offline");
+      } catch {
+        setSyncStatus("offline");
+      }
     }
 
     /* ================= DOM HELPERS ================= */
@@ -2219,7 +2341,7 @@
       };
       state.conversations.unshift(conv);
       state.activeConvId = conv.id;
-      persistAll();
+      scheduleCloudSync();
       renderConversationList();
       renderActiveChat();
       return conv;
@@ -2261,14 +2383,14 @@
           if (state.activeConvId === conv.id) {
             state.activeConvId = state.conversations[0]?.id || "";
           }
-          persistAll();
+          scheduleCloudSync();
           renderConversationList();
           renderActiveChat();
         });
 
         item.addEventListener("click", () => {
           state.activeConvId = conv.id;
-          persistAll();
+          persistLocal();
           renderConversationList();
           renderActiveChat();
           if (window.innerWidth <= 1024) closeLeftSidebar();
@@ -2315,6 +2437,27 @@
         }
       });
 
+      row.appendChild(head);
+      row.appendChild(content);
+
+      /* Render generated illustration or SVG if returned by Worker */
+      if (msg.generatedImage) {
+        const media = document.createElement("div");
+        media.className = "media-card";
+        media.innerHTML =
+          `<img src="${msg.generatedImage}" alt="Generated visual" />` +
+          `<div class="media-actions"><a class="download-media-btn" href="${msg.generatedImage}" download="jarvis-visual.png">Download PNG</a></div>`;
+        row.appendChild(media);
+      } else if (msg.generatedSvg) {
+        const media = document.createElement("div");
+        media.className = "media-card";
+        const svgBlobUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(msg.generatedSvg);
+        media.innerHTML =
+          `${msg.generatedSvg}` +
+          `<div class="media-actions"><a class="download-media-btn" href="${svgBlobUrl}" download="jarvis-diagram.svg">Download SVG</a></div>`;
+        row.appendChild(media);
+      }
+
       const toolbar = document.createElement("div");
       toolbar.className = "msg-toolbar";
 
@@ -2336,8 +2479,14 @@
       noteBtn.textContent = "Save to Notes";
       noteBtn.addEventListener("click", () => {
         const snippetTitle = (msg.text || "").split("\n")[0].replace(/[#*`]/g, "").trim().slice(0, 48) || "J.A.R.V.I.S. Note";
-        state.notes.unshift({ id: uid(), title: snippetTitle, body: msg.text || "", createdAt: Date.now() });
-        persistAll();
+        state.notes.unshift({
+          id: uid(),
+          title: snippetTitle,
+          content: msg.text || "",
+          tag: "Study",
+          updatedAt: new Date().toLocaleDateString()
+        });
+        scheduleCloudSync();
         renderNotes();
         noteBtn.textContent = "Saved";
         setTimeout(() => { noteBtn.textContent = "Save to Notes"; }, 1500);
@@ -2346,9 +2495,6 @@
       toolbar.appendChild(copyBtn);
       toolbar.appendChild(selectBtn);
       toolbar.appendChild(noteBtn);
-
-      row.appendChild(head);
-      row.appendChild(content);
       row.appendChild(toolbar);
       return row;
     }
@@ -2377,7 +2523,7 @@
           if (msg.attachment) {
             const tag = document.createElement("div");
             tag.className = "user-attachment-tag";
-            if (msg.attachment.dataUrl && msg.attachment.type.startsWith("image/")) {
+            if (msg.attachment.dataUrl && (msg.attachment.mimeType || "").startsWith("image/")) {
               const img = document.createElement("img");
               img.src = msg.attachment.dataUrl;
               img.alt = msg.attachment.name;
@@ -2405,40 +2551,97 @@
       scrollEl.scrollTop = scrollEl.scrollHeight;
     }
 
-    /* ================= FILE & DOCUMENT PARSING ================= */
+    /* ================= FILE & DOCUMENT PARSING (WORKER-COMPATIBLE) ================= */
+    async function uploadLargeMediaToWorker(file) {
+      const base = state.apiUrl.replace(/\/+$/, "");
+      const res = await fetch(`${base}/upload`, {
+        method: "POST",
+        headers: {
+          "X-Passcode": state.passcode,
+          "X-File-Name": encodeURIComponent(file.name),
+          "X-Mime-Type": file.type || "application/octet-stream"
+        },
+        body: file
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+      return {
+        type: "file_uri",
+        name: data.name || file.name,
+        mimeType: data.mimeType || file.type,
+        fileUri: data.fileUri
+      };
+    }
+
     async function extractFilePayload(file) {
       const name = file.name;
-      const type = file.type || "";
+      const mimeType = file.type || "application/octet-stream";
 
-      if (type.startsWith("image/")) {
+      /* Large audio/video files use Worker /upload route */
+      if ((mimeType.startsWith("audio/") || mimeType.startsWith("video/")) && file.size > 0) {
+        return await uploadLargeMediaToWorker(file);
+      }
+
+      /* Inline images for multimodal vision */
+      if (mimeType.startsWith("image/")) {
         const dataUrl = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result);
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
-        return { name, type, dataUrl, extractedText: "" };
+        const base64Data = String(dataUrl).split(",")[1] || "";
+        return {
+          type: "inline",
+          name,
+          mimeType,
+          data: base64Data,
+          dataUrl
+        };
       }
 
+      /* PowerPoint (.pptx) native slide text + embedded slide images */
       if (name.toLowerCase().endsWith(".pptx") && window.JSZip) {
         const buf = await file.arrayBuffer();
         const zip = await window.JSZip.loadAsync(buf);
         const slideFiles = Object.keys(zip.files)
           .filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f))
-          .sort((a, b) => {
-            const na = parseInt(a.match(/\d+/)[0], 10);
-            const nb = parseInt(b.match(/\d+/)[0], 10);
-            return na - nb;
-          });
+          .sort((a, b) => parseInt(a.match(/\d+/)[0], 10) - parseInt(b.match(/\d+/)[0], 10));
+
         const slides = [];
         for (const sf of slideFiles) {
           const xml = await zip.files[sf].async("string");
           const plain = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
           if (plain) slides.push(`[Slide ${slides.length + 1}] ${plain}`);
         }
-        return { name, type: "application/pptx", extractedText: slides.join("\n").slice(0, 24000) };
+
+        const mediaFiles = Object.keys(zip.files)
+          .filter((f) => /^ppt\/media\/.+\.(png|jpg|jpeg|webp)$/i.test(f))
+          .slice(0, 5);
+
+        const slideImages = [];
+        for (let i = 0; i < mediaFiles.length; i++) {
+          const mf = mediaFiles[i];
+          const b64 = await zip.files[mf].async("base64");
+          const ext = mf.split(".").pop().toLowerCase();
+          slideImages.push({
+            slideLabel: `Embedded Graphic ${i + 1}`,
+            mimeType: ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg",
+            data: b64
+          });
+        }
+
+        return {
+          type: "pptx",
+          name,
+          mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          slideCount: slideFiles.length,
+          slidesText: slides.join("\n").slice(0, 24000),
+          slideImages
+        };
       }
 
+      /* PDF extraction */
       if (name.toLowerCase().endsWith(".pdf") && window.pdfjsLib) {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -2452,11 +2655,22 @@
           const line = content.items.map((it) => it.str).join(" ");
           if (line.trim()) pages.push(`[Page ${p}] ${line.trim()}`);
         }
-        return { name, type: "application/pdf", extractedText: pages.join("\n").slice(0, 24000) };
+        return {
+          type: "text",
+          name,
+          mimeType: "application/pdf",
+          content: pages.join("\n").slice(0, 24000)
+        };
       }
 
+      /* Plain text / source code */
       const text = await file.text();
-      return { name, type: type || "text/plain", extractedText: text.slice(0, 24000) };
+      return {
+        type: "text",
+        name,
+        mimeType: "text/plain",
+        content: text.slice(0, 24000)
+      };
     }
 
     function setPendingAttachment(att) {
@@ -2484,38 +2698,17 @@
     async function handleIncomingFile(file) {
       if (!file) return;
       try {
+        $("preview-name").textContent = `Processing ${file.name}...`;
+        $("attachment-preview").classList.remove("hidden");
         const payload = await extractFilePayload(file);
         setPendingAttachment(payload);
       } catch (err) {
-        alert("Could not read file: " + (err.message || err));
+        setPendingAttachment(null);
+        alert("Could not process file: " + (err.message || err));
       }
     }
 
-    /* ================= BACKEND API & ROBUST RESPONSE PARSING ================= */
-    function extractReplyText(data) {
-      if (!data) return "";
-      if (typeof data === "string") return data.trim();
-      const direct =
-        data.reply ??
-        data.response ??
-        data.text ??
-        data.answer ??
-        data.output ??
-        data.content ??
-        data.message;
-      if (typeof direct === "string" && direct.trim()) return direct.trim();
-      if (Array.isArray(data.choices) && data.choices[0]?.message?.content) {
-        return String(data.choices[0].message.content).trim();
-      }
-      if (Array.isArray(data.candidates) && data.candidates[0]?.content?.parts) {
-        return data.candidates[0].content.parts
-          .map((p) => p.text || "")
-          .join("")
-          .trim();
-      }
-      return "";
-    }
-
+    /* ================= BACKEND CHAT QUERY (ROOT / WITH GEMINI HISTORY) ================= */
     function buildVaultContext(prompt) {
       if (!state.vault.length) return "";
       const terms = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
@@ -2528,52 +2721,32 @@
         return { doc, score };
       });
       scored.sort((a, b) => b.score - a.score);
-      const top = scored.slice(0, 2).map((s) => `[Vault: ${s.doc.name}]\n${s.doc.content.slice(0, 4000)}`);
-      return top.join("\n\n");
+      return scored
+        .slice(0, 2)
+        .map((s) => `[Vault: ${s.doc.name}]\n${s.doc.content.slice(0, 4000)}`)
+        .join("\n\n");
     }
 
-    async function queryBackendWithRetry(payload) {
+    async function queryWorkerChat(payload) {
       const base = state.apiUrl.replace(/\/+$/, "");
       if (!base) {
         throw new Error("No Backend Server URL configured. Open the sidebar gear icon to set your API URL.");
       }
 
-      const headers = { "Content-Type": "application/json" };
-      if (state.token) headers["Authorization"] = `Bearer ${state.token}`;
+      const res = await fetch(`${base}/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-      let lastError = null;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const res = await fetch(`${base}/api/chat`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(payload)
-          });
-
-          const rawBody = await res.text();
-          let parsed = null;
-          try {
-            parsed = JSON.parse(rawBody);
-          } catch {
-            parsed = rawBody;
-          }
-
-          if (!res.ok) {
-            const errMsg = (parsed && parsed.error) || `HTTP ${res.status}`;
-            throw new Error(errMsg);
-          }
-
-          const replyText = extractReplyText(parsed);
-          if (replyText) return replyText;
-          lastError = new Error("Empty response payload from model");
-        } catch (err) {
-          lastError = err;
-          if (attempt === 0) {
-            await new Promise((r) => setTimeout(r, 700));
-          }
-        }
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 || (data.reply && data.reply.includes("Access denied: wrong passcode"))) {
+        throw new Error("UNAUTHORIZED");
       }
-      throw lastError || new Error("Request failed");
+      if (!res.ok) {
+        throw new Error(data.error || data.reply || `HTTP ${res.status}`);
+      }
+      return data;
     }
 
     async function sendMessage(overrideText = null) {
@@ -2591,12 +2764,21 @@
         conv.title = text.slice(0, 42) || attachment.name;
       }
 
+      /* Build Gemini-formatted history BEFORE pushing the current user message */
+      const geminiHistory = conv.messages
+        .filter((m) => !m.pending && m.text)
+        .slice(-14)
+        .map((m) => ({
+          role: m.role === "ai" ? "model" : "user",
+          parts: [{ text: m.text }]
+        }));
+
       conv.messages.push({
         id: uid(),
         role: "user",
         text,
         attachment: attachment
-          ? { name: attachment.name, type: attachment.type, dataUrl: attachment.dataUrl || "" }
+          ? { name: attachment.name, mimeType: attachment.mimeType || "", dataUrl: attachment.dataUrl || "" }
           : null
       });
 
@@ -2611,50 +2793,72 @@
       setPendingAttachment(null);
       state.isSending = true;
       updateSendButtonState();
-      persistAll();
+      persistLocal();
       renderConversationList();
       renderActiveChat();
 
-      const history = conv.messages
-        .filter((m) => !m.pending && m.text)
-        .slice(-12)
-        .map((m) => ({ role: m.role === "ai" ? "assistant" : "user", content: m.text }));
-
       const vaultContext = buildVaultContext(text);
-      const workspaceSummary = [
-        state.schedule.length ? `Schedule: ${state.schedule.map((s) => `${s.title} (${s.time})`).join("; ")}` : "",
-        state.todos.filter((t) => !t.done).length
-          ? `Open Tasks: ${state.todos.filter((t) => !t.done).map((t) => t.text).join("; ")}`
-          : ""
-      ]
-        .filter(Boolean)
-        .join("\n");
+      const workspaceSnapshot = {
+        schedule: state.schedule,
+        todos: state.todos,
+        notes: state.notes.map((n) => ({ title: n.title, tag: n.tag || "Study" })),
+        vaultCatalog: state.vault.map((v) => ({
+          name: v.name,
+          detail: `${v.content.length.toLocaleString()} chars`
+        }))
+      };
+
+      const cleanAttachment = attachment
+        ? {
+            type: attachment.type,
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            data: attachment.data,
+            fileUri: attachment.fileUri,
+            content: attachment.content,
+            slideCount: attachment.slideCount,
+            slidesText: attachment.slidesText,
+            slideImages: attachment.slideImages
+          }
+        : null;
 
       try {
-        const reply = await queryBackendWithRetry({
+        const data = await queryWorkerChat({
           message: text,
-          prompt: text,
-          history,
-          attachment: attachment
-            ? {
-                name: attachment.name,
-                type: attachment.type,
-                dataUrl: attachment.dataUrl || "",
-                extractedText: attachment.extractedText || ""
-              }
-            : null,
+          passcode: state.passcode,
+          history: geminiHistory,
+          attachment: cleanAttachment,
           vaultContext,
-          workspaceSummary
+          workspaceSnapshot
         });
+
         pendingMsg.pending = false;
-        pendingMsg.text = reply;
+        pendingMsg.text = data.reply || "I didn't receive a valid response, sir.";
+        if (data.generatedImage) pendingMsg.generatedImage = data.generatedImage;
+        if (data.generatedSvg) pendingMsg.generatedSvg = data.generatedSvg;
+
+        /* If J.A.R.V.I.S. AI tools updated schedule/todos/notes on GitHub, reflect immediately */
+        if (data.updatedWorkspace) {
+          if (Array.isArray(data.updatedWorkspace.schedule)) state.schedule = data.updatedWorkspace.schedule;
+          if (Array.isArray(data.updatedWorkspace.todos)) state.todos = data.updatedWorkspace.todos;
+          if (Array.isArray(data.updatedWorkspace.notes)) state.notes = data.updatedWorkspace.notes;
+          renderSchedule();
+          renderTodos();
+          renderNotes();
+        }
       } catch (err) {
+        if (err.message === "UNAUTHORIZED") {
+          conv.messages = conv.messages.filter((m) => m.id !== pendingMsg.id);
+          state.isSending = false;
+          signOutWithReason("Passcode rejected by J.A.R.V.I.S. Worker. Please enter your valid passcode.");
+          return;
+        }
         pendingMsg.pending = false;
         pendingMsg.text = `Connection notice: ${err.message}`;
       } finally {
         state.isSending = false;
         updateSendButtonState();
-        persistAll();
+        scheduleCloudSync();
         renderActiveChat();
       }
     }
@@ -2680,17 +2884,19 @@
         return;
       }
       state.schedule.forEach((item) => {
+        const badgeLabel = item.category || item.tag || "Class";
+        const timeLabel = item.date ? `${item.date} • ${item.time}` : item.time;
         const card = document.createElement("div");
         card.className = "hub-card";
         card.innerHTML =
           `<div class="hub-card-top">` +
             `<div class="hub-card-title">${escapeHtml(item.title)}</div>` +
-            `<span class="badge ${item.tag === "Exam" ? "danger" : item.tag === "Deadline" ? "amber" : ""}">${escapeHtml(item.tag)}</span>` +
+            `<span class="badge ${badgeLabel === "Exam" ? "danger" : badgeLabel === "Deadline" ? "amber" : ""}">${escapeHtml(badgeLabel)}</span>` +
           `</div>` +
-          `<div class="kv-row"><span>${escapeHtml(item.time)}</span><button class="mini-del" type="button">&times;</button></div>`;
+          `<div class="kv-row"><span>${escapeHtml(timeLabel)}</span><button class="mini-del" type="button">&times;</button></div>`;
         card.querySelector(".mini-del").addEventListener("click", () => {
           state.schedule = state.schedule.filter((x) => x.id !== item.id);
-          persistAll();
+          scheduleCloudSync();
           renderSchedule();
         });
         list.appendChild(card);
@@ -2711,23 +2917,24 @@
       }
 
       state.todos.forEach((item) => {
+        const prio = (item.priority || "medium").toLowerCase();
         const card = document.createElement("div");
         card.className = "hub-card";
         card.innerHTML =
           `<div class="todo-row">` +
             `<input class="todo-check" type="checkbox" ${item.done ? "checked" : ""} />` +
             `<span class="todo-text ${item.done ? "done" : ""}">${escapeHtml(item.text)}</span>` +
-            `<span class="badge ${item.priority === "High" ? "amber" : ""}">${escapeHtml(item.priority)}</span>` +
+            `<span class="badge ${prio === "high" ? "amber" : ""}">${escapeHtml(prio)}</span>` +
             `<button class="mini-del" type="button">&times;</button>` +
           `</div>`;
         card.querySelector(".todo-check").addEventListener("change", (e) => {
           item.done = e.target.checked;
-          persistAll();
+          scheduleCloudSync();
           renderTodos();
         });
         card.querySelector(".mini-del").addEventListener("click", () => {
           state.todos = state.todos.filter((x) => x.id !== item.id);
-          persistAll();
+          scheduleCloudSync();
           renderTodos();
         });
         list.appendChild(card);
@@ -2742,21 +2949,22 @@
         return;
       }
       state.notes.forEach((note) => {
+        const noteText = note.content || note.body || "";
         const card = document.createElement("div");
         card.className = "hub-card";
         card.innerHTML =
           `<div class="hub-card-top"><div class="hub-card-title">${escapeHtml(note.title)}</div></div>` +
-          `<div class="hub-card-sub">${escapeHtml(note.body)}</div>` +
+          `<div class="hub-card-sub">${escapeHtml(noteText)}</div>` +
           `<div class="mini-actions">` +
             `<button class="mini-btn copy-note-btn" type="button">Copy</button>` +
             `<button class="mini-del" type="button">&times;</button>` +
           `</div>`;
         card.querySelector(".copy-note-btn").addEventListener("click", (e) => {
-          copyToClipboard(`${note.title}\n\n${note.body}`, e.target, "Copy");
+          copyToClipboard(`${note.title}\n\n${noteText}`, e.target, "Copy");
         });
         card.querySelector(".mini-del").addEventListener("click", () => {
           state.notes = state.notes.filter((x) => x.id !== note.id);
-          persistAll();
+          scheduleCloudSync();
           renderNotes();
         });
         list.appendChild(card);
@@ -2781,11 +2989,21 @@
           `<div class="kv-row"><span>${doc.content.length.toLocaleString()} chars</span><button class="mini-del" type="button">&times;</button></div>`;
         card.querySelector(".mini-del").addEventListener("click", () => {
           state.vault = state.vault.filter((x) => x.id !== doc.id);
-          persistAll();
+          scheduleCloudSync();
           renderVault();
         });
         list.appendChild(card);
       });
+    }
+
+    function renderAllViews() {
+      renderConversationList();
+      renderActiveChat();
+      renderSchedule();
+      renderTodos();
+      renderNotes();
+      renderVault();
+      updateCounts();
     }
 
     /* ================= INPUT & AUTH HANDLERS ================= */
@@ -2801,31 +3019,39 @@
       $("send-btn").disabled = state.isSending || (!hasText && !hasFile);
     }
 
+    function signOutWithReason(reason = "") {
+      state.passcode = "";
+      localStorage.removeItem(STORAGE_KEYS.passcode);
+      localStorage.removeItem("jarvis_auth_token");
+      $("app-screen").classList.add("hidden");
+      $("login-screen").classList.remove("hidden");
+      $("passcode-input").value = "";
+      $("login-error").textContent = reason;
+    }
+
     function enterWorkspace() {
       $("login-screen").classList.add("hidden");
       $("app-screen").classList.remove("hidden");
       if (window.innerWidth > 1024) {
         $("left-sidebar").classList.remove("collapsed");
       }
-      renderConversationList();
-      renderActiveChat();
-      renderSchedule();
-      renderTodos();
-      renderNotes();
-      renderVault();
-      updateCounts();
+      renderAllViews();
     }
 
     /* ================= BOOTSTRAP EVENT LISTENERS ================= */
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
       loadLocalData();
       applyTheme(state.theme);
 
-      if (state.token) {
+      if (state.passcode) {
         enterWorkspace();
+        const syncResult = await pullCloudWorkspace();
+        if (syncResult === "unauthorized") {
+          signOutWithReason("Please sign in with your J.A.R.V.I.S. passcode.");
+        }
       }
 
-      /* Login */
+      /* Login validated against Worker /workspace */
       $("login-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         const passcode = $("passcode-input").value.trim();
@@ -2834,23 +3060,33 @@
         $("login-btn").disabled = true;
 
         try {
-          if (state.apiUrl) {
-            const base = state.apiUrl.replace(/\/+$/, "");
-            const res = await fetch(`${base}/api/login`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ passcode })
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              throw new Error(data.error || "Invalid passcode");
-            }
-            state.token = data.token || passcode;
-          } else {
-            state.token = passcode;
+          const base = state.apiUrl.replace(/\/+$/, "");
+          const res = await fetch(`${base}/workspace`, {
+            method: "GET",
+            headers: { "X-Passcode": passcode }
+          });
+
+          if (res.status === 401) {
+            throw new Error("Access denied: wrong passcode.");
           }
-          localStorage.setItem(STORAGE_KEYS.token, state.token);
+          if (!res.ok) {
+            throw new Error(`Server error (HTTP ${res.status})`);
+          }
+
+          const data = await res.json();
+          state.passcode = passcode;
+          localStorage.setItem(STORAGE_KEYS.passcode, passcode);
+
+          if (Array.isArray(data.schedule)) state.schedule = data.schedule;
+          if (Array.isArray(data.todos)) state.todos = data.todos;
+          if (Array.isArray(data.notes)) state.notes = data.notes;
+          if (Array.isArray(data.conversations) && data.conversations.length) {
+            state.conversations = data.conversations;
+            state.activeConvId = state.conversations[0].id;
+          }
+          persistLocal();
           enterWorkspace();
+          setSyncStatus("online");
         } catch (err) {
           $("login-error").textContent = err.message || "Authentication failed";
         } finally {
@@ -2858,13 +3094,9 @@
         }
       });
 
-      $("logout-btn").addEventListener("click", () => {
-        state.token = "";
-        localStorage.removeItem(STORAGE_KEYS.token);
-        $("app-screen").classList.add("hidden");
-        $("login-screen").classList.remove("hidden");
-        $("passcode-input").value = "";
-      });
+      $("logout-btn").addEventListener("click", () => signOutWithReason(""));
+
+      $("sync-now-btn").addEventListener("click", () => pullCloudWorkspace());
 
       /* Theme & Server Modals */
       $("theme-toggle-btn").addEventListener("click", () => {
@@ -2875,7 +3107,8 @@
       $("open-server-from-login").addEventListener("click", openServerModal);
       $("server-close-btn").addEventListener("click", closeServerModal);
       $("server-save-btn").addEventListener("click", () => {
-        state.apiUrl = $("server-url-input").value.trim();
+        const nextUrl = $("server-url-input").value.trim() || DEFAULT_WORKER_URL;
+        state.apiUrl = nextUrl;
         localStorage.setItem(STORAGE_KEYS.apiUrl, state.apiUrl);
         closeServerModal();
       });
@@ -2980,12 +3213,13 @@
         state.schedule.unshift({
           id: uid(),
           title: $("sched-title").value.trim(),
+          date: new Date().toISOString().slice(0, 10),
           time: $("sched-time").value.trim(),
-          tag: $("sched-tag").value
+          category: $("sched-tag").value
         });
         $("sched-title").value = "";
         $("sched-time").value = "";
-        persistAll();
+        scheduleCloudSync();
         renderSchedule();
       });
 
@@ -2998,7 +3232,7 @@
           done: false
         });
         $("todo-text").value = "";
-        persistAll();
+        scheduleCloudSync();
         renderTodos();
       });
 
@@ -3007,12 +3241,13 @@
         state.notes.unshift({
           id: uid(),
           title: $("note-title").value.trim(),
-          body: $("note-body").value.trim(),
-          createdAt: Date.now()
+          content: $("note-body").value.trim(),
+          tag: "Study",
+          updatedAt: new Date().toLocaleDateString()
         });
         $("note-title").value = "";
         $("note-body").value = "";
-        persistAll();
+        scheduleCloudSync();
         renderNotes();
       });
 
@@ -3022,11 +3257,12 @@
         for (const f of files) {
           try {
             const parsed = await extractFilePayload(f);
-            if (parsed.extractedText) {
+            const textBody = parsed.content || parsed.slidesText || "";
+            if (textBody) {
               state.vault.unshift({
                 id: uid(),
                 name: parsed.name,
-                content: parsed.extractedText
+                content: textBody
               });
             }
           } catch (err) {
@@ -3034,7 +3270,7 @@
           }
         }
         e.target.value = "";
-        persistAll();
+        scheduleCloudSync();
         renderVault();
       });
     });
