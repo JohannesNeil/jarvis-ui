@@ -216,6 +216,12 @@
       color: #ffffff;
     }
 
+    .sheet-btn.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #ffffff;
+    }
+
     #select-sheet-body {
       padding: 18px 20px 32px;
       overflow-y: auto;
@@ -249,9 +255,9 @@
     }
 
     .dialog-card p {
-      font-size: 0.81rem;
+      font-size: 0.82rem;
       color: var(--text-secondary);
-      line-height: 1.45;
+      line-height: 1.5;
     }
 
     /* ================= LOGIN SCREEN ================= */
@@ -1599,6 +1605,18 @@
     </div>
   </div>
 
+  <!-- DESTRUCTIVE TOOL CONFIRMATION MODAL (ANTI-PROMPT INJECTION) -->
+  <div id="confirm-tool-modal" class="modal-backdrop centered hidden">
+    <div class="dialog-card">
+      <h2>Confirm Workspace Action</h2>
+      <p id="confirm-tool-summary">Confirm this action?</p>
+      <div class="select-sheet-actions" style="justify-content: flex-end;">
+        <button id="confirm-tool-cancel-btn" class="sheet-btn" type="button">Cancel</button>
+        <button id="confirm-tool-approve-btn" class="sheet-btn danger" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <!-- BACKEND SERVER CONFIGURATION MODAL -->
   <div id="server-modal" class="modal-backdrop centered hidden">
     <div class="dialog-card">
@@ -1624,7 +1642,7 @@
         <span style="font-weight: 600; font-size: 0.95rem;">J.A.R.V.I.S.</span>
       </div>
       <h1>Sign in to workspace</h1>
-      <p>Enter your passcode to load conversations, schedule, notes, and your study vault.</p>
+      <p>Enter your passcode to unlock your encrypted workspace, schedule, notes, and study vault.</p>
       <form id="login-form" class="login-form">
         <input
           id="passcode-input"
@@ -1965,7 +1983,9 @@
 
     const STORAGE_KEYS = {
       apiUrl: "jarvis_api_url",
-      passcode: "jarvis_passcode",
+      sessionToken: "jarvis_session_token_v1",
+      sessionExpiresAt: "jarvis_session_exp_v1",
+      vaultKeyB64: "jarvis_vault_key_v1",
       theme: "jarvis_theme",
       conversations: "jarvis_conversations_v3",
       activeConvId: "jarvis_active_conv_v3",
@@ -1974,6 +1994,10 @@
       notes: "jarvis_notes_v3",
       vault: "jarvis_vault_v3"
     };
+
+    // Purge any legacy plaintext passcode stored in localStorage
+    localStorage.removeItem("jarvis_passcode");
+    localStorage.removeItem("jarvis_auth_token");
 
     function resolveInitialApiUrl() {
       const saved = (localStorage.getItem(STORAGE_KEYS.apiUrl) || "").trim();
@@ -1986,7 +2010,9 @@
 
     const state = {
       apiUrl: resolveInitialApiUrl(),
-      passcode: localStorage.getItem(STORAGE_KEYS.passcode) || localStorage.getItem("jarvis_auth_token") || "",
+      sessionToken: localStorage.getItem(STORAGE_KEYS.sessionToken) || "",
+      sessionExpiresAt: Number(localStorage.getItem(STORAGE_KEYS.sessionExpiresAt) || 0),
+      vaultKeyB64: localStorage.getItem(STORAGE_KEYS.vaultKeyB64) || "",
       theme: localStorage.getItem(STORAGE_KEYS.theme) || "dark",
       conversations: [],
       activeConvId: localStorage.getItem(STORAGE_KEYS.activeConvId) || "",
@@ -1995,8 +2021,56 @@
       notes: [],
       vault: [],
       pendingAttachment: null,
+      pendingToolAction: null,
       isSending: false
     };
+
+    function hasValidSession() {
+      return Boolean(
+        state.sessionToken &&
+        state.vaultKeyB64 &&
+        state.sessionExpiresAt > Date.now()
+      );
+    }
+
+    function getAuthHeaders(extra = {}) {
+      const headers = { ...extra };
+      if (state.sessionToken) {
+        headers["Authorization"] = `Bearer ${state.sessionToken}`;
+      }
+      if (state.vaultKeyB64) {
+        headers["X-Vault-Key"] = state.vaultKeyB64;
+      }
+      return headers;
+    }
+
+    // Derive deterministic 256-bit AES-GCM key locally from passcode (never sent as passcode)
+    async function deriveVaultKeyB64(passcode) {
+      const enc = new TextEncoder();
+      const baseKey = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(passcode),
+        "PBKDF2",
+        false,
+        ["deriveBits"]
+      );
+      const bits = await crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          salt: enc.encode("jarvis-zero-knowledge-vault-v1::JohannesNeil"),
+          iterations: 150000,
+          hash: "SHA-256"
+        },
+        baseKey,
+        256
+      );
+      const bytes = new Uint8Array(bits);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i++) {
+        bin += String.fromCharCode(bytes[i]);
+      }
+      return btoa(bin);
+    }
 
     function loadLocalData() {
       try {
@@ -2032,15 +2106,15 @@
     }
 
     async function pullCloudWorkspace() {
-      if (!state.passcode) return false;
+      if (!hasValidSession()) return "unauthorized";
       const base = state.apiUrl.replace(/\/+$/, "");
       setSyncStatus("syncing");
       try {
         const res = await fetch(`${base}/workspace`, {
           method: "GET",
-          headers: { "X-Passcode": state.passcode }
+          headers: getAuthHeaders()
         });
-        if (res.status === 401) {
+        if (res.status === 401 || res.status === 423) {
           setSyncStatus("offline");
           return "unauthorized";
         }
@@ -2071,13 +2145,13 @@
     let syncTimer = null;
     function scheduleCloudSync() {
       persistLocal();
-      if (!state.passcode) return;
+      if (!hasValidSession()) return;
       clearTimeout(syncTimer);
       syncTimer = setTimeout(pushCloudWorkspace, 800);
     }
 
     async function pushCloudWorkspace() {
-      if (!state.passcode) return;
+      if (!hasValidSession()) return;
       const base = state.apiUrl.replace(/\/+$/, "");
       setSyncStatus("syncing");
       try {
@@ -2110,12 +2184,13 @@
 
         const res = await fetch(`${base}/workspace`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Passcode": state.passcode
-          },
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify(payload)
         });
+        if (res.status === 401) {
+          signOutWithReason("Session expired. Please sign in again.");
+          return;
+        }
         setSyncStatus(res.ok ? "online" : "offline");
       } catch {
         setSyncStatus("offline");
@@ -2222,6 +2297,66 @@
       $("select-sheet-body").textContent = "";
     }
 
+    /* ================= DESTRUCTIVE TOOL CONFIRMATION MODAL ================= */
+    function openConfirmToolModal(summary, pendingTool) {
+      state.pendingToolAction = pendingTool;
+      $("confirm-tool-summary").textContent = summary || "Confirm this workspace deletion?";
+      $("confirm-tool-modal").classList.remove("hidden");
+    }
+
+    function closeConfirmToolModal() {
+      state.pendingToolAction = null;
+      $("confirm-tool-modal").classList.add("hidden");
+    }
+
+    async function executeConfirmedTool() {
+      const pendingTool = state.pendingToolAction;
+      closeConfirmToolModal();
+      if (!pendingTool) return;
+
+      const conv = getActiveConversation();
+      const base = state.apiUrl.replace(/\/+$/, "");
+      try {
+        const res = await fetch(`${base}/confirm-tool`, {
+          method: "POST",
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ pendingTool })
+        });
+        if (res.status === 401) {
+          signOutWithReason("Session expired. Please sign in again.");
+          return;
+        }
+        const data = await res.json();
+        if (data.updatedWorkspace) {
+          if (Array.isArray(data.updatedWorkspace.schedule)) state.schedule = data.updatedWorkspace.schedule;
+          if (Array.isArray(data.updatedWorkspace.todos)) state.todos = data.updatedWorkspace.todos;
+          if (Array.isArray(data.updatedWorkspace.notes)) state.notes = data.updatedWorkspace.notes;
+          persistLocal();
+          renderSchedule();
+          renderTodos();
+          renderNotes();
+        }
+        if (conv) {
+          conv.messages.push({
+            id: uid(),
+            role: "ai",
+            text: data.reply || "Confirmed and completed, sir."
+          });
+          scheduleCloudSync();
+          renderActiveChat();
+        }
+      } catch (err) {
+        if (conv) {
+          conv.messages.push({
+            id: uid(),
+            role: "ai",
+            text: `Confirmation error: ${err.message}`
+          });
+          renderActiveChat();
+        }
+      }
+    }
+
     /* ================= SERVER URL MODAL ================= */
     function openServerModal() {
       $("server-url-input").value = state.apiUrl;
@@ -2239,21 +2374,18 @@
       const displayMath = [];
       const inlineMath = [];
 
-      // 1. Protect fenced code blocks first so $ inside code is untouched
       let safeSource = text.replace(/```([a-zA-Z0-9_+#-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
         const idx = codeBlocks.length;
         codeBlocks.push({ lang: lang || "code", code: code.replace(/\n$/, "") });
         return `\u0000CODEBLOCK_${idx}\u0000`;
       });
 
-      // 2. Protect display math ($$ ... $$) from Markdown *, _, and HTML escaping
       safeSource = safeSource.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
         const idx = displayMath.length;
         displayMath.push(expr.trim());
         return `\n\u0000MATHDISPLAY_${idx}\u0000\n`;
       });
 
-      // 3. Protect inline math ($ ... $), avoiding currency like $50
       safeSource = safeSource.replace(/(^|[^\\])\$([^\s$][^$\n]*?[^\s\\$]|[^\s\\$])\$(?!\d)/g, (_, prefix, expr) => {
         const idx = inlineMath.length;
         inlineMath.push(expr);
@@ -2513,7 +2645,6 @@
       row.appendChild(head);
       row.appendChild(content);
 
-      /* Render generated illustration or SVG if returned by Worker */
       if (msg.generatedImage) {
         const media = document.createElement("div");
         media.className = "media-card";
@@ -2624,18 +2755,20 @@
       scrollEl.scrollTop = scrollEl.scrollHeight;
     }
 
-    /* ================= FILE & DOCUMENT PARSING (HIGH-CAPACITY ENGINEERING) ================= */
+    /* ================= FILE & DOCUMENT PARSING ================= */
     async function uploadLargeMediaToWorker(file) {
       const base = state.apiUrl.replace(/\/+$/, "");
       const res = await fetch(`${base}/upload`, {
         method: "POST",
-        headers: {
-          "X-Passcode": state.passcode,
+        headers: getAuthHeaders({
           "X-File-Name": encodeURIComponent(file.name),
           "X-Mime-Type": file.type || "application/octet-stream"
-        },
+        }),
         body: file
       });
+      if (res.status === 401) {
+        throw new Error("UNAUTHORIZED");
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
       return {
@@ -2650,12 +2783,10 @@
       const name = file.name;
       const mimeType = file.type || "application/octet-stream";
 
-      /* Large audio/video files use Worker /upload route */
       if ((mimeType.startsWith("audio/") || mimeType.startsWith("video/")) && file.size > 0) {
         return await uploadLargeMediaToWorker(file);
       }
 
-      /* Inline images (handwritten math, free-body diagrams, schematics, oscilloscope snips) */
       if (mimeType.startsWith("image/")) {
         const dataUrl = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -2673,7 +2804,6 @@
         };
       }
 
-      /* PowerPoint (.pptx) native slide text + up to 12 embedded schematics/diagrams */
       if (name.toLowerCase().endsWith(".pptx") && window.JSZip) {
         const buf = await file.arrayBuffer();
         const zip = await window.JSZip.loadAsync(buf);
@@ -2714,7 +2844,6 @@
         };
       }
 
-      /* PDF extraction (up to 80 pages / 180,000 chars for engineering textbooks & manuals) */
       if (name.toLowerCase().endsWith(".pdf") && window.pdfjsLib) {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -2736,7 +2865,6 @@
         };
       }
 
-      /* Plain text & large source code files (up to 180,000 chars / ~4,500 lines) */
       const text = await file.text();
       return {
         type: "text",
@@ -2782,11 +2910,15 @@
         setPendingAttachment(payload);
       } catch (err) {
         setPendingAttachment(null);
+        if (err.message === "UNAUTHORIZED") {
+          signOutWithReason("Session expired. Please sign in again.");
+          return;
+        }
         alert("Could not process file: " + (err.message || err));
       }
     }
 
-    /* ================= BACKEND CHAT QUERY (ROOT / WITH GEMINI HISTORY) ================= */
+    /* ================= BACKEND CHAT QUERY ================= */
     function buildVaultContext(prompt) {
       if (!state.vault.length) return "";
       const terms = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
@@ -2813,12 +2945,12 @@
 
       const res = await fetch(`${base}/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload)
       });
 
       const data = await res.json().catch(() => ({}));
-      if (res.status === 401 || (data.reply && data.reply.includes("Access denied: wrong passcode"))) {
+      if (res.status === 401) {
         throw new Error("UNAUTHORIZED");
       }
       if (!res.ok) {
@@ -2842,7 +2974,6 @@
         conv.title = text.slice(0, 42) || attachment.name;
       }
 
-      /* Build Gemini-formatted history BEFORE pushing the current user message */
       const geminiHistory = conv.messages
         .filter((m) => !m.pending && m.text)
         .slice(-14)
@@ -2903,7 +3034,6 @@
       try {
         const data = await queryWorkerChat({
           message: text,
-          passcode: state.passcode,
           history: geminiHistory,
           attachment: cleanAttachment,
           vaultContext,
@@ -2915,7 +3045,10 @@
         if (data.generatedImage) pendingMsg.generatedImage = data.generatedImage;
         if (data.generatedSvg) pendingMsg.generatedSvg = data.generatedSvg;
 
-        /* If J.A.R.V.I.S. AI tools updated schedule/todos/notes on GitHub, reflect immediately */
+        if (data.requiresConfirmation && data.pendingTool) {
+          openConfirmToolModal(data.confirmationSummary, data.pendingTool);
+        }
+
         if (data.updatedWorkspace) {
           if (Array.isArray(data.updatedWorkspace.schedule)) state.schedule = data.updatedWorkspace.schedule;
           if (Array.isArray(data.updatedWorkspace.todos)) state.todos = data.updatedWorkspace.todos;
@@ -2928,7 +3061,7 @@
         if (err.message === "UNAUTHORIZED") {
           conv.messages = conv.messages.filter((m) => m.id !== pendingMsg.id);
           state.isSending = false;
-          signOutWithReason("Passcode rejected by J.A.R.V.I.S. Worker. Please enter your valid passcode.");
+          signOutWithReason("Session expired. Please sign in with your passcode.");
           return;
         }
         pendingMsg.pending = false;
@@ -3098,9 +3231,12 @@
     }
 
     function signOutWithReason(reason = "") {
-      state.passcode = "";
-      localStorage.removeItem(STORAGE_KEYS.passcode);
-      localStorage.removeItem("jarvis_auth_token");
+      state.sessionToken = "";
+      state.sessionExpiresAt = 0;
+      state.vaultKeyB64 = "";
+      localStorage.removeItem(STORAGE_KEYS.sessionToken);
+      localStorage.removeItem(STORAGE_KEYS.sessionExpiresAt);
+      localStorage.removeItem(STORAGE_KEYS.vaultKeyB64);
       $("app-screen").classList.add("hidden");
       $("login-screen").classList.remove("hidden");
       $("passcode-input").value = "";
@@ -3121,15 +3257,17 @@
       loadLocalData();
       applyTheme(state.theme);
 
-      if (state.passcode) {
+      if (hasValidSession()) {
         enterWorkspace();
         const syncResult = await pullCloudWorkspace();
         if (syncResult === "unauthorized") {
-          signOutWithReason("Please sign in with your J.A.R.V.I.S. passcode.");
+          signOutWithReason("Session expired. Please sign in with your passcode.");
         }
+      } else {
+        signOutWithReason("");
       }
 
-      /* Login validated against Worker /workspace */
+      /* Login via /auth -> HMAC session token + PBKDF2 AES-GCM key */
       $("login-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         const passcode = $("passcode-input").value.trim();
@@ -3139,32 +3277,37 @@
 
         try {
           const base = state.apiUrl.replace(/\/+$/, "");
-          const res = await fetch(`${base}/workspace`, {
-            method: "GET",
-            headers: { "X-Passcode": passcode }
+          const authRes = await fetch(`${base}/auth`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ passcode })
           });
 
-          if (res.status === 401) {
-            throw new Error("Access denied: wrong passcode.");
+          const authData = await authRes.json().catch(() => ({}));
+          if (authRes.status === 429) {
+            throw new Error(authData.error || "Too many failed attempts. Wait 60 seconds.");
           }
-          if (!res.ok) {
-            throw new Error(`Server error (HTTP ${res.status})`);
+          if (!authRes.ok || !authData.token) {
+            throw new Error(authData.error || "Access denied: wrong passcode.");
           }
 
-          const data = await res.json();
-          state.passcode = passcode;
-          localStorage.setItem(STORAGE_KEYS.passcode, passcode);
+          const derivedKey = await deriveVaultKeyB64(passcode);
+          state.sessionToken = authData.token;
+          state.sessionExpiresAt = authData.expiresAt || Date.now() + 24 * 60 * 60 * 1000;
+          state.vaultKeyB64 = derivedKey;
 
-          if (Array.isArray(data.schedule)) state.schedule = data.schedule;
-          if (Array.isArray(data.todos)) state.todos = data.todos;
-          if (Array.isArray(data.notes)) state.notes = data.notes;
-          if (Array.isArray(data.conversations) && data.conversations.length) {
-            state.conversations = data.conversations;
-            state.activeConvId = state.conversations[0].id;
+          localStorage.setItem(STORAGE_KEYS.sessionToken, state.sessionToken);
+          localStorage.setItem(STORAGE_KEYS.sessionExpiresAt, String(state.sessionExpiresAt));
+          localStorage.setItem(STORAGE_KEYS.vaultKeyB64, state.vaultKeyB64);
+
+          const syncResult = await pullCloudWorkspace();
+          if (syncResult === "unauthorized") {
+            throw new Error("Vault unlock failed. Please verify your passcode.");
           }
-          persistLocal();
+
           enterWorkspace();
-          setSyncStatus("online");
+          // Immediately ensure workspace.json on GitHub is encrypted with AES-GCM-256
+          await pushCloudWorkspace();
         } catch (err) {
           $("login-error").textContent = err.message || "Authentication failed";
         } finally {
@@ -3173,8 +3316,23 @@
       });
 
       $("logout-btn").addEventListener("click", () => signOutWithReason(""));
-
       $("sync-now-btn").addEventListener("click", () => pullCloudWorkspace());
+
+      /* Destructive Tool Confirmation Modal */
+      $("confirm-tool-cancel-btn").addEventListener("click", () => {
+        closeConfirmToolModal();
+        const conv = getActiveConversation();
+        if (conv) {
+          conv.messages.push({
+            id: uid(),
+            role: "ai",
+            text: "Action cancelled, sir. No items were removed."
+          });
+          scheduleCloudSync();
+          renderActiveChat();
+        }
+      });
+      $("confirm-tool-approve-btn").addEventListener("click", executeConfirmedTool);
 
       /* Theme & Server Modals */
       $("theme-toggle-btn").addEventListener("click", () => {
