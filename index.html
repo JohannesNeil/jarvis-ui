@@ -11,23 +11,23 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
   <style>
-    /* ================= DESIGN TOKENS (DARK & LIGHT SAAS THEMES) ================= */
+    /* ================= DESIGN TOKENS ================= */
     :root,
     [data-theme="dark"] {
       --bg-app: #111215;
-      --bg-sidebar: #15171b;
-      --bg-surface: #1b1d22;
-      --bg-surface-hover: #22252c;
-      --bg-input: #17191e;
+      --bg-sidebar: #16181d;
+      --bg-surface: #1c1e24;
+      --bg-surface-hover: #24272f;
+      --bg-input: #1a1c22;
       --border-hairline: rgba(255, 255, 255, 0.08);
       --border-strong: rgba(255, 255, 255, 0.14);
-      --text-primary: #f4f4f6;
+      --text-primary: #f3f4f6;
       --text-secondary: #9ca3af;
       --text-muted: #6b7280;
 
       --blue-primary: #3b82f6;
       --blue-hover: #2563eb;
-      --blue-soft: rgba(59, 130, 246, 0.13);
+      --blue-soft: rgba(59, 130, 246, 0.14);
       --blue-border: rgba(59, 130, 246, 0.32);
 
       --amber-primary: #f59e0b;
@@ -39,18 +39,18 @@
       --danger: #ef4444;
       --danger-soft: rgba(239, 68, 68, 0.14);
 
-      --btn-contrast-bg: #f4f4f6;
+      --btn-contrast-bg: #f3f4f6;
       --btn-contrast-text: #111215;
-      --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
-      --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.45);
+      --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55);
     }
 
     [data-theme="light"] {
-      --bg-app: #f8f9fb;
-      --bg-sidebar: #f3f4f6;
-      --bg-surface: #ffffff;
-      --bg-surface-hover: #f1f5f9;
-      --bg-input: #ffffff;
+      --bg-app: #ffffff;
+      --bg-sidebar: #f5f6f8;
+      --bg-surface: #f8f9fb;
+      --bg-surface-hover: #eef1f5;
+      --bg-input: #f3f4f6;
       --border-hairline: #e5e7eb;
       --border-strong: #d1d5db;
       --text-primary: #111827;
@@ -71,10 +71,10 @@
       --danger: #dc2626;
       --danger-soft: #fef2f2;
 
-      --btn-contrast-bg: #2563eb;
+      --btn-contrast-bg: #111827;
       --btn-contrast-text: #ffffff;
-      --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
-      --shadow-float: 0 10px 28px rgba(15, 23, 42, 0.08);
+      --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-float: 0 12px 32px rgba(15, 23, 42, 0.12);
     }
 
     * {
@@ -93,22 +93,21 @@
       overflow: hidden;
       overscroll-behavior: none;
       -webkit-font-smoothing: antialiased;
-      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }
 
     .hidden { display: none !important; }
 
-    /* Isolate mobile text selection strictly to message text */
-    #app-screen,
+    /* Lock text selection away from UI chrome so mobile long-press stays clean */
     header,
     #left-sidebar,
     #right-sidebar,
-    .ai-avatar,
+    .ai-msg-head,
     .msg-toolbar,
     .code-header,
     .media-actions,
     .user-attachment-tag,
     .input-dock,
+    .chip-strip,
     button {
       -webkit-user-select: none;
       user-select: none;
@@ -126,7 +125,7 @@
       inset: 14px;
       z-index: 200;
       background: var(--bg-surface);
-      opacity: 0.96;
+      opacity: 0.97;
       border: 1.5px dashed var(--blue-primary);
       border-radius: 16px;
       display: flex;
@@ -142,6 +141,116 @@
     #drop-overlay p { font-size: 0.95rem; font-weight: 600; }
     #drop-overlay span { font-size: 0.8rem; color: var(--text-secondary); }
 
+    /* ================= GEMINI-STYLE SELECT TEXT SHEET & MODALS ================= */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 180;
+      background: rgba(0, 0, 0, 0.62);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .modal-backdrop.centered {
+      align-items: center;
+    }
+
+    .select-sheet {
+      width: 100%;
+      max-width: 680px;
+      max-height: 82dvh;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-float);
+      overflow: hidden;
+    }
+
+    .select-sheet-head {
+      height: 50px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .select-sheet-head span {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .select-sheet-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sheet-btn {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-app);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .sheet-btn.primary {
+      background: var(--blue-primary);
+      border-color: var(--blue-primary);
+      color: #ffffff;
+    }
+
+    #select-sheet-body {
+      padding: 18px 20px 32px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
+
+    .dialog-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow-float);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dialog-card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .dialog-card p {
+      font-size: 0.81rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
     /* ================= LOGIN SCREEN ================= */
     #login-screen {
       height: 100dvh;
@@ -154,11 +263,11 @@
 
     .login-card {
       width: 100%;
-      max-width: 380px;
+      max-width: 370px;
       background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
       border-radius: 18px;
-      padding: 32px 28px;
+      padding: 30px 26px;
       box-shadow: var(--shadow-float);
     }
 
@@ -166,12 +275,12 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .brand-mark {
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       border-radius: 9px;
       background: var(--blue-primary);
       display: flex;
@@ -187,26 +296,25 @@
       position: absolute;
       top: -2px;
       right: -2px;
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--amber-primary);
       border: 2px solid var(--bg-surface);
     }
 
     .login-card h1 {
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       font-weight: 600;
       letter-spacing: -0.02em;
-      color: var(--text-primary);
       margin-bottom: 6px;
     }
 
     .login-card p {
       color: var(--text-secondary);
-      font-size: 0.85rem;
+      font-size: 0.84rem;
       line-height: 1.45;
-      margin-bottom: 22px;
+      margin-bottom: 20px;
     }
 
     .login-form {
@@ -225,7 +333,6 @@
       font-family: inherit;
       font-size: 0.92rem;
       outline: none;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .login-input:focus {
@@ -244,17 +351,35 @@
       font-size: 0.9rem;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.15s ease;
     }
 
     .login-btn:hover { background: var(--blue-hover); }
     .login-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .login-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
 
     .login-error {
       color: var(--danger);
       font-size: 0.8rem;
       min-height: 16px;
     }
+
+    .text-link-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.78rem;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .text-link-btn:hover { color: var(--text-primary); }
 
     /* ================= 3-PANE WORKSPACE SHELL ================= */
     #app-screen {
@@ -276,9 +401,9 @@
 
     .drawer-backdrop.active { display: block; }
 
-    /* ================= LEFT SIDEBAR ================= */
+    /* ================= LEFT SIDEBAR (ORGANIZED & UNCROWDED) ================= */
     #left-sidebar {
-      width: 256px;
+      width: 264px;
       background: var(--bg-sidebar);
       border-right: 1px solid var(--border-hairline);
       display: flex;
@@ -311,13 +436,12 @@
       font-size: 0.94rem;
       font-weight: 600;
       letter-spacing: -0.01em;
-      color: var(--text-primary);
     }
 
     .brand-mark-sm {
-      width: 24px;
-      height: 24px;
-      border-radius: 7px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
       background: var(--blue-primary);
       display: flex;
       align-items: center;
@@ -331,16 +455,16 @@
       position: absolute;
       top: -2px;
       right: -2px;
-      width: 7px;
-      height: 7px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--amber-primary);
       border: 1.5px solid var(--bg-sidebar);
     }
 
     .subtle-icon-btn {
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
       border-radius: 8px;
       border: 1px solid transparent;
       background: transparent;
@@ -358,17 +482,17 @@
     }
 
     .sidebar-actions {
-      padding: 4px 12px 10px;
+      padding: 6px 14px 12px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
 
     .new-chat-btn {
       width: 100%;
-      height: 36px;
-      padding: 0 12px;
-      border-radius: 9px;
+      height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
       border: none;
       background: var(--btn-contrast-bg);
       color: var(--btn-contrast-text);
@@ -380,10 +504,9 @@
       justify-content: center;
       gap: 7px;
       cursor: pointer;
-      transition: opacity 0.15s ease;
     }
 
-    .new-chat-btn:hover { opacity: 0.9; }
+    .new-chat-btn:hover { opacity: 0.92; }
 
     .search-box {
       position: relative;
@@ -393,28 +516,37 @@
 
     .search-box svg {
       position: absolute;
-      left: 10px;
+      left: 11px;
       color: var(--text-muted);
       pointer-events: none;
     }
 
     .sidebar-search {
       width: 100%;
-      height: 32px;
-      background: var(--bg-input);
+      height: 34px;
+      background: var(--bg-app);
       border: 1px solid var(--border-hairline);
-      border-radius: 8px;
-      padding: 0 10px 0 30px;
+      border-radius: 9px;
+      padding: 0 10px 0 32px;
       color: var(--text-primary);
       font-family: inherit;
-      font-size: 0.8rem;
+      font-size: 0.81rem;
       outline: none;
     }
 
     .sidebar-search:focus { border-color: var(--blue-primary); }
 
+    .sidebar-section-title {
+      padding: 12px 16px 6px;
+      font-size: 0.71rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+    }
+
     .sidebar-nav {
-      padding: 4px 10px 8px;
+      padding: 0 10px 10px;
       display: flex;
       flex-direction: column;
       gap: 2px;
@@ -426,16 +558,15 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 7px 10px;
-      border-radius: 8px;
+      padding: 8px 10px;
+      border-radius: 9px;
       border: none;
       background: transparent;
       color: var(--text-secondary);
       font-family: inherit;
-      font-size: 0.82rem;
+      font-size: 0.83rem;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.14s ease, color 0.14s ease;
     }
 
     .nav-link-btn:hover {
@@ -446,7 +577,7 @@
     .nav-link-left {
       display: flex;
       align-items: center;
-      gap: 9px;
+      gap: 10px;
     }
 
     .nav-count {
@@ -455,20 +586,10 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .sidebar-group-label {
-      padding: 12px 14px 6px;
-      font-size: 0.72rem;
-      font-weight: 500;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
     #conversation-list {
       flex: 1;
       overflow-y: auto;
-      padding: 0 10px 12px;
+      padding: 2px 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 2px;
@@ -483,16 +604,12 @@
       justify-content: space-between;
       gap: 6px;
       padding: 8px 10px;
-      border-radius: 8px;
+      border-radius: 9px;
       cursor: pointer;
-      transition: background 0.14s ease;
     }
 
     .conv-item:hover { background: var(--bg-surface-hover); }
-
-    .conv-item.active {
-      background: var(--blue-soft);
-    }
+    .conv-item.active { background: var(--blue-soft); }
 
     .conv-meta { min-width: 0; flex: 1; }
 
@@ -507,12 +624,6 @@
 
     .conv-item.active .conv-title { color: var(--blue-primary); }
 
-    .conv-date {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      margin-top: 1px;
-    }
-
     .conv-del-btn {
       background: transparent;
       border: none;
@@ -521,20 +632,20 @@
       padding: 2px 5px;
       border-radius: 6px;
       cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.14s ease, color 0.14s ease;
+      opacity: 0.65;
     }
 
     .conv-item:hover .conv-del-btn { opacity: 1; }
     .conv-del-btn:hover { color: var(--danger); }
 
-    .sidebar-profile {
+    /* Sidebar Footer with Theme, Server Settings & Logout */
+    .sidebar-footer {
       padding: 10px 12px;
       border-top: 1px solid var(--border-hairline);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
     }
 
     .profile-info {
@@ -545,21 +656,19 @@
     }
 
     .profile-avatar {
-      width: 30px;
-      height: 30px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
       background: var(--blue-soft);
       border: 1px solid var(--blue-border);
       color: var(--blue-primary);
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       font-weight: 600;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-
-    .profile-text { min-width: 0; }
 
     .profile-name {
       font-size: 0.8rem;
@@ -570,23 +679,14 @@
       text-overflow: ellipsis;
     }
 
-    .profile-sub {
-      font-size: 0.7rem;
-      color: var(--text-muted);
+    .footer-tools {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 2px;
+      flex-shrink: 0;
     }
 
-    .status-dot-ok {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--emerald);
-      display: inline-block;
-    }
-
-    /* ================= CENTER WORKSPACE PANE ================= */
+    /* ================= CENTER WORKSPACE PANE (GEMINI MOBILE STYLE) ================= */
     .center-pane {
       flex: 1;
       min-width: 0;
@@ -597,97 +697,84 @@
     }
 
     header {
-      height: 52px;
-      padding: 0 16px;
+      height: 50px;
+      padding: 0 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border-hairline);
       background: var(--bg-app);
       flex-shrink: 0;
+      padding-top: env(safe-area-inset-top);
     }
 
     .header-left {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       min-width: 0;
     }
 
-    .header-thread-title {
-      font-size: 0.86rem;
-      font-weight: 500;
+    .header-brand-title {
+      font-size: 0.96rem;
+      font-weight: 600;
+      letter-spacing: -0.015em;
       color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
-    .model-badge {
+    .model-tag {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       font-weight: 500;
       color: var(--text-secondary);
       background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
-      padding: 3px 9px;
+      padding: 2px 8px;
       border-radius: 999px;
     }
 
-    .model-badge-dot {
-      width: 6px;
-      height: 6px;
+    .model-tag-dot {
+      width: 5px;
+      height: 5px;
       border-radius: 50%;
       background: var(--amber-primary);
     }
 
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
     .header-pill-btn {
-      height: 32px;
+      height: 30px;
       padding: 0 11px;
-      border-radius: 8px;
+      border-radius: 999px;
       border: 1px solid var(--border-hairline);
       background: var(--bg-surface);
       color: var(--text-primary);
       font-family: inherit;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 500;
       display: inline-flex;
       align-items: center;
       gap: 6px;
       cursor: pointer;
-      transition: background 0.14s ease, border-color 0.14s ease;
     }
 
-    .header-pill-btn:hover {
-      background: var(--bg-surface-hover);
-      border-color: var(--border-strong);
-    }
+    .header-pill-btn:hover { background: var(--bg-surface-hover); }
 
     .hub-count-pill {
       background: var(--amber-soft);
       color: var(--amber-primary);
-      border: 1px solid var(--amber-border);
-      font-size: 0.7rem;
+      font-size: 0.69rem;
       font-weight: 600;
       padding: 0 6px;
       border-radius: 999px;
       font-variant-numeric: tabular-nums;
     }
 
-    /* ================= CHAT STREAM & WELCOME CARDS ================= */
+    /* ================= CHAT STREAM & CLEAN EMPTY STATE ================= */
     #chat-scroll {
       flex: 1;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      padding: 24px 20px 16px;
+      padding: 12px 16px 20px;
       scroll-behavior: smooth;
     }
 
@@ -695,42 +782,22 @@
     #chat-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
 
     .chat-container {
-      max-width: 760px;
+      max-width: 720px;
       margin: 0 auto;
+      min-height: 100%;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 22px;
     }
 
     #welcome-view {
-      margin: auto;
-      padding: 36px 0 20px;
+      margin: auto 0;
+      padding: 24px 4px;
       width: 100%;
     }
 
-    .welcome-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 0.76rem;
-      font-weight: 500;
-      color: var(--blue-primary);
-      background: var(--blue-soft);
-      border: 1px solid var(--blue-border);
-      padding: 4px 10px;
-      border-radius: 999px;
-      margin-bottom: 14px;
-    }
-
-    .welcome-kicker span {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--amber-primary);
-    }
-
     .welcome-heading {
-      font-size: clamp(1.65rem, 4vw, 2.15rem);
+      font-size: clamp(1.65rem, 5vw, 2.2rem);
       font-weight: 600;
       letter-spacing: -0.025em;
       color: var(--text-primary);
@@ -738,98 +805,57 @@
     }
 
     .welcome-sub {
-      font-size: 0.95rem;
+      font-size: 0.94rem;
       color: var(--text-secondary);
-      line-height: 1.5;
-      margin-bottom: 26px;
+      line-height: 1.45;
+      margin-bottom: 20px;
     }
 
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-    }
-
-    .starter-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-hairline);
-      border-radius: 14px;
-      padding: 16px;
-      text-align: left;
-      cursor: pointer;
-      box-shadow: var(--shadow-card);
+    /* Slim Horizontal Chips (No bulky widgets) */
+    .chip-strip {
       display: flex;
-      flex-direction: column;
-      gap: 12px;
-      transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
-    }
-
-    .starter-card:hover {
-      border-color: var(--blue-border);
-      background: var(--bg-surface-hover);
-      transform: translateY(-1px);
-    }
-
-    .starter-card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      flex-wrap: wrap;
       gap: 8px;
     }
 
-    .starter-card-title {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .status-chip {
-      font-size: 0.7rem;
-      font-weight: 500;
-      padding: 2px 8px;
+    .prompt-chip {
+      height: 36px;
+      padding: 0 14px;
       border-radius: 999px;
-    }
-
-    .status-chip.blue {
-      background: var(--blue-soft);
-      color: var(--blue-primary);
-    }
-
-    .status-chip.amber {
-      background: var(--amber-soft);
-      color: var(--amber-primary);
-    }
-
-    .starter-card-desc {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      line-height: 1.45;
-    }
-
-    .starter-card-meta {
-      border-top: 1px solid var(--border-hairline);
-      padding-top: 10px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.74rem;
-      color: var(--text-muted);
-    }
-
-    .starter-card-meta strong {
+      border: 1px solid var(--border-hairline);
+      background: var(--bg-surface);
       color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.81rem;
       font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      transition: background 0.14s ease, border-color 0.14s ease;
     }
 
-    /* Message Bubbles */
-    .msg-row {
-      display: flex;
-      width: 100%;
+    .prompt-chip:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--blue-border);
     }
 
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--blue-primary);
+    }
+
+    .chip-dot.amber { background: var(--amber-primary); }
+
+    /* Message Bubbles (Isolated block layout for clean mobile selection) */
     .msg-row.user {
+      display: flex;
       flex-direction: column;
       align-items: flex-end;
       gap: 6px;
+      width: 100%;
     }
 
     .user-attachment-tag {
@@ -838,7 +864,7 @@
       gap: 8px;
       background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 6px 10px;
       font-size: 0.78rem;
       color: var(--text-secondary);
@@ -848,7 +874,7 @@
     .user-attachment-tag img {
       max-width: 200px;
       max-height: 140px;
-      border-radius: 7px;
+      border-radius: 8px;
       display: block;
     }
 
@@ -856,52 +882,56 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
       color: var(--text-primary);
-      padding: 11px 15px;
-      border-radius: 14px 14px 4px 14px;
-      max-width: 80%;
-      line-height: 1.55;
-      font-size: 0.92rem;
+      padding: 10px 15px;
+      border-radius: 18px 18px 4px 18px;
+      max-width: 82%;
+      line-height: 1.5;
+      font-size: 0.93rem;
       white-space: pre-wrap;
       word-break: break-word;
-      box-shadow: var(--shadow-card);
       -webkit-user-select: text;
       user-select: text;
       -webkit-touch-callout: default;
-      contain: layout style;
     }
 
     .msg-row.ai {
-      align-items: flex-start;
-      gap: 12px;
+      display: block;
+      width: 100%;
+      position: relative;
+    }
+
+    .ai-msg-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-secondary);
     }
 
     .ai-avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
       background: var(--blue-soft);
-      border: 1px solid var(--blue-border);
       color: var(--blue-primary);
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      margin-top: 2px;
-    }
-
-    .ai-body {
-      flex: 1;
-      min-width: 0;
     }
 
     .ai-content {
+      display: block;
       line-height: 1.65;
-      font-size: 0.93rem;
+      font-size: 0.95rem;
       color: var(--text-primary);
       word-break: break-word;
       -webkit-user-select: text;
       user-select: text;
       -webkit-touch-callout: default;
+      isolation: isolate;
       contain: layout style;
     }
 
@@ -917,11 +947,25 @@
       margin: 14px 0 6px;
       font-size: 1rem;
       font-weight: 600;
-      letter-spacing: -0.01em;
       color: var(--text-primary);
     }
 
     .ai-content h3:first-child { margin-top: 0; }
+
+    .ai-content ul, .ai-content ol {
+      margin: 6px 0 10px 20px;
+    }
+
+    .ai-content li {
+      margin-bottom: 4px;
+    }
+
+    .ai-content blockquote {
+      border-left: 3px solid var(--blue-primary);
+      padding-left: 12px;
+      color: var(--text-secondary);
+      margin: 8px 0;
+    }
 
     .ai-content code {
       background: var(--bg-surface);
@@ -936,21 +980,21 @@
     .msg-toolbar {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 6px;
-      margin-top: 8px;
+      margin-top: 10px;
     }
 
     .msg-action-btn {
       background: transparent;
       border: 1px solid var(--border-hairline);
       color: var(--text-secondary);
-      padding: 3px 9px;
-      border-radius: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
       font-family: inherit;
       font-size: 0.73rem;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.14s ease, color 0.14s ease;
     }
 
     .msg-action-btn:hover {
@@ -961,7 +1005,7 @@
     .code-wrapper {
       background: #0d0f12;
       border: 1px solid var(--border-hairline);
-      border-radius: 10px;
+      border-radius: 12px;
       margin: 12px 0;
       overflow: hidden;
     }
@@ -988,11 +1032,6 @@
       font-family: inherit;
       font-size: 0.71rem;
       cursor: pointer;
-    }
-
-    .copy-code-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: #ffffff;
     }
 
     .code-wrapper pre {
@@ -1047,7 +1086,8 @@
       display: flex;
       align-items: center;
       gap: 5px;
-      height: 28px;
+      height: 24px;
+      padding-left: 2px;
     }
 
     .thinking-wrap span {
@@ -1066,39 +1106,38 @@
       40% { opacity: 1; transform: scale(1); }
     }
 
-    /* ================= MULTI-LINE COMPOSER ================= */
+    /* ================= COMPACT GEMINI-STYLE PILL COMPOSER ================= */
     .input-dock {
-      padding: 8px 20px calc(14px + env(safe-area-inset-bottom));
+      padding: 6px 14px calc(12px + env(safe-area-inset-bottom));
       flex-shrink: 0;
     }
 
-    .composer-box {
-      max-width: 760px;
+    .composer-pill {
+      max-width: 720px;
       margin: 0 auto;
-      background: var(--bg-surface);
+      background: var(--bg-input);
       border: 1px solid var(--border-strong);
-      border-radius: 16px;
-      padding: 10px 12px 8px;
-      box-shadow: var(--shadow-card);
-      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+      border-radius: 24px;
+      padding: 6px 8px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .composer-box:focus-within {
+    .composer-pill:focus-within {
       border-color: var(--blue-primary);
-      box-shadow: 0 0 0 3px var(--blue-soft);
+      box-shadow: 0 0 0 2px var(--blue-soft);
     }
 
     #attachment-preview {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      background: var(--bg-app);
+      gap: 8px;
+      background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
-      border-radius: 10px;
-      padding: 6px 10px;
-      margin-bottom: 8px;
-      font-size: 0.8rem;
+      border-radius: 14px;
+      padding: 5px 10px;
+      margin-bottom: 6px;
+      font-size: 0.78rem;
     }
 
     .preview-info {
@@ -1109,8 +1148,8 @@
     }
 
     .preview-thumb {
-      width: 34px;
-      height: 34px;
+      width: 28px;
+      height: 28px;
       border-radius: 6px;
       object-fit: cover;
       flex-shrink: 0;
@@ -1128,74 +1167,56 @@
       background: transparent;
       border: none;
       color: var(--text-muted);
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       cursor: pointer;
       padding: 0 4px;
     }
 
-    .remove-attach-btn:hover { color: var(--danger); }
+    .composer-main-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .attach-circle-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .attach-circle-btn:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+    }
 
     #prompt-input {
-      width: 100%;
+      flex: 1;
       background: transparent;
       border: none;
       color: var(--text-primary);
       font-family: inherit;
-      font-size: 0.92rem;
-      line-height: 1.5;
-      min-height: 44px;
-      max-height: 150px;
+      font-size: 0.94rem;
+      line-height: 22px;
+      padding: 6px 4px;
+      min-height: 34px;
+      max-height: 132px;
       resize: none;
       outline: none;
     }
 
     #prompt-input::placeholder { color: var(--text-muted); }
 
-    .composer-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: 6px;
-      margin-top: 4px;
-      border-top: 1px solid var(--border-hairline);
-    }
-
-    .composer-left-tools {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .composer-tool-btn {
-      height: 28px;
-      padding: 0 9px;
-      border-radius: 7px;
-      border: 1px solid var(--border-hairline);
-      background: var(--bg-app);
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 0.76rem;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      cursor: pointer;
-      transition: background 0.14s ease, color 0.14s ease;
-    }
-
-    .composer-tool-btn:hover {
-      background: var(--bg-surface-hover);
-      color: var(--text-primary);
-    }
-
-    .kbd-hint {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-    }
-
     #send-btn {
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       border: none;
       background: var(--blue-primary);
@@ -1204,20 +1225,19 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: background 0.15s ease, transform 0.12s ease;
+      flex-shrink: 0;
     }
 
     #send-btn:hover { background: var(--blue-hover); }
-    #send-btn:active { transform: scale(0.94); }
     #send-btn:disabled {
       background: var(--bg-surface-hover);
       color: var(--text-muted);
       cursor: not-allowed;
     }
 
-    /* ================= RIGHT INSPECTOR PANEL ================= */
+    /* ================= RIGHT WORKSPACE INSPECTOR ================= */
     #right-sidebar {
-      width: 344px;
+      width: 340px;
       background: var(--bg-sidebar);
       border-left: 1px solid var(--border-hairline);
       display: flex;
@@ -1236,13 +1256,12 @@
     }
 
     .inspector-tabs {
-      height: 52px;
+      height: 50px;
       padding: 0 12px;
       border-bottom: 1px solid var(--border-hairline);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 4px;
     }
 
     .tab-strip {
@@ -1263,10 +1282,7 @@
       font-size: 0.8rem;
       font-weight: 500;
       cursor: pointer;
-      transition: color 0.14s ease, border-color 0.14s ease;
     }
-
-    .hub-tab:hover { color: var(--text-primary); }
 
     .hub-tab.active {
       color: var(--text-primary);
@@ -1282,9 +1298,6 @@
       gap: 12px;
     }
 
-    .hub-panel::-webkit-scrollbar { width: 4px; }
-    .hub-panel::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
-
     .section-bar {
       display: flex;
       align-items: center;
@@ -1297,22 +1310,6 @@
       color: var(--text-primary);
     }
 
-    .add-pill-btn {
-      height: 26px;
-      padding: 0 10px;
-      border-radius: 7px;
-      border: 1px solid var(--border-strong);
-      background: var(--bg-surface);
-      color: var(--text-primary);
-      font-family: inherit;
-      font-size: 0.75rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.14s ease;
-    }
-
-    .add-pill-btn:hover { background: var(--bg-surface-hover); }
-
     .hub-form {
       background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
@@ -1321,14 +1318,13 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      box-shadow: var(--shadow-card);
     }
 
     .hub-row { display: flex; gap: 6px; }
 
     .hub-input, .hub-select, .hub-textarea {
       width: 100%;
-      background: var(--bg-input);
+      background: var(--bg-app);
       border: 1px solid var(--border-hairline);
       border-radius: 8px;
       padding: 7px 9px;
@@ -1336,10 +1332,6 @@
       font-family: inherit;
       font-size: 0.8rem;
       outline: none;
-    }
-
-    .hub-input:focus, .hub-select:focus, .hub-textarea:focus {
-      border-color: var(--blue-primary);
     }
 
     .hub-textarea {
@@ -1360,8 +1352,6 @@
       cursor: pointer;
     }
 
-    .hub-submit-btn:hover { background: var(--blue-hover); }
-
     .hub-list {
       display: flex;
       flex-direction: column;
@@ -1373,7 +1363,6 @@
       border: 1px solid var(--border-hairline);
       border-radius: 12px;
       padding: 11px 12px;
-      box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -1411,16 +1400,9 @@
       border-top: 1px solid var(--border-hairline);
     }
 
-    .kv-row span:last-child {
-      color: var(--text-primary);
-      font-weight: 500;
-      font-variant-numeric: tabular-nums;
-    }
-
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
       font-size: 0.69rem;
       font-weight: 500;
       padding: 2px 7px;
@@ -1429,20 +1411,8 @@
       color: var(--blue-primary);
     }
 
-    .badge.amber {
-      background: var(--amber-soft);
-      color: var(--amber-primary);
-    }
-
-    .badge.danger {
-      background: var(--danger-soft);
-      color: var(--danger);
-    }
-
-    .badge.emerald {
-      background: var(--emerald-soft);
-      color: var(--emerald);
-    }
+    .badge.amber { background: var(--amber-soft); color: var(--amber-primary); }
+    .badge.danger { background: var(--danger-soft); color: var(--danger); }
 
     .todo-row {
       display: flex;
@@ -1505,8 +1475,6 @@
       cursor: pointer;
     }
 
-    .mini-btn:hover { background: var(--bg-surface-hover); }
-
     .mini-del {
       background: transparent;
       border: none;
@@ -1516,8 +1484,6 @@
       padding: 0 4px;
     }
 
-    .mini-del:hover { color: var(--danger); }
-
     .vault-drop-btn {
       border: 1px dashed var(--border-strong);
       background: var(--bg-surface);
@@ -1525,19 +1491,12 @@
       padding: 14px 12px;
       text-align: center;
       cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease;
-    }
-
-    .vault-drop-btn:hover {
-      border-color: var(--blue-primary);
-      background: var(--blue-soft);
     }
 
     .vault-drop-btn strong {
       display: block;
       font-size: 0.82rem;
       font-weight: 600;
-      color: var(--text-primary);
       margin-bottom: 2px;
     }
 
@@ -1550,7 +1509,7 @@
       text-align: center;
       color: var(--text-muted);
       font-size: 0.78rem;
-      padding: 22px 10px;
+      padding: 20px 10px;
       line-height: 1.45;
     }
 
@@ -1561,11 +1520,11 @@
         top: 0;
         bottom: 0;
         left: 0;
-        width: 268px;
+        width: 272px;
         transform: translateX(0);
       }
       #left-sidebar.collapsed {
-        width: 268px;
+        width: 272px;
         transform: translateX(-100%);
       }
       #right-sidebar {
@@ -1580,13 +1539,6 @@
         width: min(92vw, 350px);
         transform: translateX(100%);
       }
-    }
-
-    @media (max-width: 600px) {
-      #chat-scroll { padding: 16px 14px; }
-      .input-dock { padding: 6px 12px calc(10px + env(safe-area-inset-bottom)); }
-      .kbd-hint { display: none; }
-      .user-bubble { max-width: 88%; }
     }
   </style>
 </head>
@@ -1603,16 +1555,43 @@
     <span>Images, PPTX, PDF books, audio, video &amp; code</span>
   </div>
 
+  <!-- GEMINI-STYLE ISOLATED TEXT SELECTION SHEET -->
+  <div id="select-modal" class="modal-backdrop hidden">
+    <div class="select-sheet">
+      <div class="select-sheet-head">
+        <span>Select text</span>
+        <div class="select-sheet-actions">
+          <button id="select-copy-all-btn" class="sheet-btn primary" type="button">Copy all</button>
+          <button id="select-close-btn" class="sheet-btn" type="button">Done</button>
+        </div>
+      </div>
+      <div id="select-sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- BACKEND SERVER CONFIGURATION MODAL -->
+  <div id="server-modal" class="modal-backdrop centered hidden">
+    <div class="dialog-card">
+      <h2>Backend API Endpoint</h2>
+      <p>Enter your J.A.R.V.I.S. cloud worker or backend URL (for example, <code>https://your-worker.workers.dev</code>).</p>
+      <input id="server-url-input" class="login-input" type="url" placeholder="https://..." />
+      <div class="select-sheet-actions" style="justify-content: flex-end;">
+        <button id="server-close-btn" class="sheet-btn" type="button">Cancel</button>
+        <button id="server-save-btn" class="sheet-btn primary" type="button">Save URL</button>
+      </div>
+    </div>
+  </div>
+
   <!-- LOGIN VIEW -->
   <section id="login-screen">
     <div class="login-card">
       <div class="login-brand">
         <div class="brand-mark">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
           </svg>
         </div>
-        <span style="font-weight: 600; font-size: 0.95rem; letter-spacing: -0.01em;">J.A.R.V.I.S.</span>
+        <span style="font-weight: 600; font-size: 0.95rem;">J.A.R.V.I.S.</span>
       </div>
       <h1>Sign in to workspace</h1>
       <p>Enter your passcode to load conversations, schedule, notes, and your study vault.</p>
@@ -1626,7 +1605,10 @@
           required
         />
         <button id="login-btn" class="login-btn" type="submit">Continue</button>
-        <div id="login-error" class="login-error"></div>
+        <div class="login-meta-row">
+          <div id="login-error" class="login-error"></div>
+          <button id="open-server-from-login" class="text-link-btn" type="button">Server URL</button>
+        </div>
       </form>
     </div>
   </section>
@@ -1636,11 +1618,11 @@
     <div id="drawer-backdrop" class="drawer-backdrop"></div>
 
     <!-- LEFT SIDEBAR -->
-    <aside id="left-sidebar">
+    <aside id="left-sidebar" class="collapsed">
       <div class="sidebar-header">
         <div class="sidebar-brand">
           <div class="brand-mark-sm">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
               <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
             </svg>
           </div>
@@ -1660,18 +1642,18 @@
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          New Chat
+          New chat
         </button>
         <div class="search-box">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input id="conv-search" class="sidebar-search" type="text" placeholder="Search threads..." />
+          <input id="conv-search" class="sidebar-search" type="text" placeholder="Search chats..." />
         </div>
       </div>
 
-      <!-- Workspace Module Shortcuts -->
+      <div class="sidebar-section-title">Workspace</div>
       <nav class="sidebar-nav">
         <button class="nav-link-btn" type="button" onclick="openCommandHubTab('schedule')">
           <span class="nav-link-left">
@@ -1685,13 +1667,13 @@
           </span>
           <span id="nav-sched-count" class="nav-count">0</span>
         </button>
-        <button class="nav-link-btn" type="button" onclick="openCommandHubTab('todos')">
+        <button class="nav-link-btn" type="button" onclick="openCommandHubTab('todo')">
           <span class="nav-link-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <polyline points="9 11 12 14 22 4"></polyline>
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
             </svg>
-            To-Do List
+            Tasks
           </span>
           <span id="nav-todo-count" class="nav-count">0</span>
         </button>
@@ -1700,68 +1682,34 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
             </svg>
-            Study Notes
+            Notes
           </span>
-          <span id="nav-note-count" class="nav-count">0</span>
+          <span id="nav-notes-count" class="nav-count">0</span>
         </button>
         <button class="nav-link-btn" type="button" onclick="openCommandHubTab('vault')">
           <span class="nav-link-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
-            Resource Vault
+            Study Vault
           </span>
           <span id="nav-vault-count" class="nav-count">0</span>
         </button>
       </nav>
 
-      <div class="sidebar-group-label">
-        <span>Conversations</span>
-      </div>
+      <div class="sidebar-section-title">Chats</div>
       <div id="conversation-list"></div>
 
-      <!-- Profile Footer -->
-      <div class="sidebar-profile">
+      <div class="sidebar-footer">
         <div class="profile-info">
           <div class="profile-avatar">JN</div>
-          <div class="profile-text">
-            <div class="profile-name">Johannes Neil</div>
-            <div class="profile-sub"><span class="status-dot-ok"></span> Cloud synced</div>
-          </div>
+          <span class="profile-name">Johannes</span>
         </div>
-        <button id="logout-btn" class="subtle-icon-btn" type="button" title="Sign out">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-        </button>
-      </div>
-    </aside>
-
-    <!-- CENTER PANE -->
-    <div class="center-pane">
-      <header>
-        <div class="header-left">
-          <button id="toggle-left-btn" class="subtle-icon-btn" type="button" title="Toggle sidebar">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="12" x2="15" y2="12"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-          <span id="active-thread-label" class="header-thread-title">New session</span>
-          <span class="model-badge"><span class="model-badge-dot"></span>Hydrogen</span>
-        </div>
-
-        <div class="header-right">
-          <button id="theme-toggle-btn" class="subtle-icon-btn" type="button" title="Switch Light / Dark theme">
-            <svg id="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <div class="footer-tools">
+          <button id="theme-toggle-btn" class="subtle-icon-btn" type="button" title="Toggle theme">
+            <svg id="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <circle cx="12" cy="12" r="5"></circle>
               <line x1="12" y1="1" x2="12" y2="3"></line>
               <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -1776,202 +1724,197 @@
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
           </button>
-
-          <button id="toggle-right-btn" class="header-pill-btn" type="button">
-            <span>Workspace</span>
-            <span id="hub-count-badge" class="hub-count-pill">0</span>
+          <button id="open-server-btn" class="subtle-icon-btn" type="button" title="Server URL">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+          <button id="logout-btn" class="subtle-icon-btn" type="button" title="Sign out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
           </button>
         </div>
+      </div>
+    </aside>
+
+    <!-- CENTER WORKSPACE PANE -->
+    <main class="center-pane">
+      <header>
+        <div class="header-left">
+          <button id="toggle-left-btn" class="subtle-icon-btn" type="button" title="Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <span class="header-brand-title">J.A.R.V.I.S.</span>
+          <span class="model-tag">
+            <span class="model-tag-dot"></span>
+            Hydrogen
+          </span>
+        </div>
+
+        <button id="toggle-right-btn" class="header-pill-btn" type="button">
+          Workspace
+          <span id="hub-total-count" class="hub-count-pill">0</span>
+        </button>
       </header>
 
-      <main id="chat-scroll">
-        <div id="chat-container" class="chat-container">
+      <div id="chat-scroll">
+        <div class="chat-container">
+          <!-- CLEAN EMPTY STATE (NO BULKY WIDGETS) -->
           <div id="welcome-view">
-            <div class="welcome-kicker"><span></span>J.A.R.V.I.S. Assistant</div>
             <h1 class="welcome-heading">At your service, sir.</h1>
-            <p class="welcome-sub">Ask questions, analyze class PPTs and snips, or pull answers directly from your stored study books.</p>
-
-            <div class="card-grid">
-              <button class="starter-card" type="button" data-prompt="What is on my schedule and to-do list right now?">
-                <div class="starter-card-head">
-                  <span class="starter-card-title">Daily Briefing</span>
-                  <span class="status-chip blue">Live Sync</span>
-                </div>
-                <div class="starter-card-desc">Review upcoming classes, project deadlines, and open action items.</div>
-                <div class="starter-card-meta">
-                  <span>Modules</span>
-                  <strong>Schedule &amp; To-Do</strong>
-                </div>
+            <p class="welcome-sub">Ask anything, analyze slides and snips, or query your study vault.</p>
+            <div class="chip-strip">
+              <button class="prompt-chip" type="button" data-prompt="Summarize my upcoming schedule and pending tasks.">
+                <span class="chip-dot"></span>
+                Today's briefing
               </button>
-
-              <button class="starter-card" type="button" data-prompt="Quiz me based on the notes and books stored in my Resource Vault">
-                <div class="starter-card-head">
-                  <span class="starter-card-title">Resource Vault</span>
-                  <span class="status-chip amber">RAG Active</span>
-                </div>
-                <div class="starter-card-desc">Generate study questions or look up concepts from your uploaded PDFs and PPTs.</div>
-                <div class="starter-card-meta">
-                  <span>Source</span>
-                  <strong>Books &amp; Slides</strong>
-                </div>
+              <button class="prompt-chip" type="button" data-prompt="Quiz me on key concepts from my Study Vault.">
+                <span class="chip-dot amber"></span>
+                Quiz from Vault
               </button>
-
-              <button class="starter-card" type="button" data-prompt="Draw a clean diagram of client-server network architecture">
-                <div class="starter-card-head">
-                  <span class="starter-card-title">Architecture &amp; Code</span>
-                  <span class="status-chip blue">Multimodal</span>
-                </div>
-                <div class="starter-card-desc">Draft clean C#, Java, SQL, or generate clear system diagrams on demand.</div>
-                <div class="starter-card-meta">
-                  <span>Output</span>
-                  <strong>Code &amp; SVG</strong>
-                </div>
+              <button class="prompt-chip" type="button" data-prompt="Review my saved notes and highlight key takeaways.">
+                <span class="chip-dot"></span>
+                Review notes
               </button>
             </div>
           </div>
-        </div>
-      </main>
 
-      <!-- Multi-line Composer -->
+          <!-- ACTIVE MESSAGES STREAM -->
+          <div id="messages-container" class="hidden" style="display: flex; flex-direction: column; gap: 22px;"></div>
+        </div>
+      </div>
+
+      <!-- COMPACT GEMINI-STYLE PILL COMPOSER -->
       <div class="input-dock">
-        <form id="chat-form" class="composer-box">
+        <div class="composer-pill">
           <div id="attachment-preview" class="hidden">
             <div class="preview-info">
-              <img id="preview-thumb" class="preview-thumb hidden" alt="Preview" />
+              <img id="preview-thumb" class="preview-thumb hidden" alt="Attachment preview" />
               <span id="preview-name" class="preview-name"></span>
             </div>
-            <button id="remove-attach-btn" class="remove-attach-btn" type="button" aria-label="Remove attachment">&times;</button>
+            <button id="remove-attach-btn" class="remove-attach-btn" type="button" title="Remove attachment">&times;</button>
           </div>
 
-          <input
-            id="file-input"
-            type="file"
-            class="hidden"
-            accept="image/*,audio/*,video/*,.pdf,.pptx,.docx,.txt,.csv,.cs,.java,.py,.sql,.js,.html,.json"
-          />
+          <div class="composer-main-row">
+            <input
+              id="file-input"
+              type="file"
+              class="hidden"
+              accept="image/*,.pdf,.pptx,.txt,.md,.py,.js,.java,.cs,.html,.css,.json,.sql,.csv,audio/*,video/*"
+            />
+            <button id="attach-btn" class="attach-circle-btn" type="button" title="Attach file or image">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
 
-          <textarea
-            id="prompt-input"
-            rows="2"
-            placeholder="Send a message to J.A.R.V.I.S., paste a snip (Ctrl+V), or ask about your vault..."
-          ></textarea>
+            <textarea
+              id="prompt-input"
+              rows="1"
+              placeholder="Ask J.A.R.V.I.S..."
+            ></textarea>
 
-          <div class="composer-toolbar">
-            <div class="composer-left-tools">
-              <button id="attach-btn" class="composer-tool-btn" type="button">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                Attach
-              </button>
-              <span class="kbd-hint">Ctrl+V snip • Auto-searches Vault</span>
-            </div>
-
-            <button id="send-btn" type="submit" aria-label="Send message">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <button id="send-btn" type="button" title="Send message" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="19" x2="12" y2="5"></line>
                 <polyline points="5 12 12 5 19 12"></polyline>
               </svg>
             </button>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
+    </main>
 
-    <!-- RIGHT INSPECTOR SIDEBAR -->
-    <aside id="right-sidebar">
+    <!-- RIGHT WORKSPACE INSPECTOR -->
+    <aside id="right-sidebar" class="collapsed">
       <div class="inspector-tabs">
         <div class="tab-strip">
-          <button class="hub-tab active" data-tab="schedule" type="button">Schedule</button>
-          <button class="hub-tab" data-tab="todos" type="button">To-Do</button>
-          <button class="hub-tab" data-tab="notes" type="button">Notes</button>
-          <button class="hub-tab" data-tab="vault" type="button">Vault</button>
+          <button class="hub-tab active" type="button" data-tab="schedule">Schedule</button>
+          <button class="hub-tab" type="button" data-tab="todo">Tasks</button>
+          <button class="hub-tab" type="button" data-tab="notes">Notes</button>
+          <button class="hub-tab" type="button" data-tab="vault">Vault</button>
         </div>
-        <button id="close-right-btn" class="subtle-icon-btn" type="button" title="Close panel">&times;</button>
+        <button id="close-right-btn" class="subtle-icon-btn" type="button" title="Close workspace">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
 
-      <!-- TAB 1: SCHEDULE -->
-      <div id="tab-schedule" class="hub-panel">
+      <!-- SCHEDULE PANEL -->
+      <div id="panel-schedule" class="hub-panel">
         <div class="section-bar">
-          <span class="section-title">Upcoming Events</span>
-          <button class="add-pill-btn" type="button" onclick="toggleForm('schedule-form')">+ Add</button>
+          <span class="section-title">Classes &amp; Deadlines</span>
         </div>
-        <form id="schedule-form" class="hub-form hidden">
-          <input id="sched-title" class="hub-input" type="text" placeholder="Event or deadline title..." required />
+        <form id="sched-form" class="hub-form">
+          <input id="sched-title" class="hub-input" type="text" placeholder="Course or event title" required />
           <div class="hub-row">
-            <input id="sched-date" class="hub-input" type="date" required />
-            <input id="sched-time" class="hub-input" type="time" />
-          </div>
-          <div class="hub-row">
-            <select id="sched-cat" class="hub-select">
+            <input id="sched-time" class="hub-input" type="text" placeholder="Mon 9:00 AM" required />
+            <select id="sched-tag" class="hub-select" style="max-width: 110px;">
               <option value="Class">Class</option>
-              <option value="Project">Project</option>
-              <option value="Exam">Exam / Defense</option>
-              <option value="Personal">Personal</option>
+              <option value="Deadline">Deadline</option>
+              <option value="Exam">Exam</option>
             </select>
-            <button class="hub-submit-btn" type="submit">Save Event</button>
           </div>
+          <button class="hub-submit-btn" type="submit">Add to Schedule</button>
         </form>
-        <div id="schedule-list" class="hub-list"></div>
+        <div id="sched-list" class="hub-list"></div>
       </div>
 
-      <!-- TAB 2: TO-DO -->
-      <div id="tab-todos" class="hub-panel hidden">
+      <!-- TASKS PANEL -->
+      <div id="panel-todo" class="hub-panel hidden">
         <div class="section-bar">
           <span class="section-title">Action Items</span>
-          <button class="add-pill-btn" type="button" onclick="toggleForm('todo-form')">+ Add</button>
+          <span id="todo-progress-label" class="nav-count">0/0</span>
         </div>
         <div class="progress-track">
-          <div id="todo-progress-fill" class="progress-fill" style="width: 0%"></div>
+          <div id="todo-progress-fill" class="progress-fill" style="width: 0%;"></div>
         </div>
-        <form id="todo-form" class="hub-form hidden">
-          <input id="todo-input" class="hub-input" type="text" placeholder="Task description..." required />
+        <form id="todo-form" class="hub-form">
           <div class="hub-row">
-            <select id="todo-priority" class="hub-select">
-              <option value="high">High Priority</option>
-              <option value="medium" selected>Medium Priority</option>
-              <option value="low">Low Priority</option>
+            <input id="todo-text" class="hub-input" type="text" placeholder="New task..." required />
+            <select id="todo-priority" class="hub-select" style="max-width: 96px;">
+              <option value="Normal">Normal</option>
+              <option value="High">High</option>
             </select>
-            <button class="hub-submit-btn" type="submit">Add Task</button>
           </div>
+          <button class="hub-submit-btn" type="submit">Add Task</button>
         </form>
         <div id="todo-list" class="hub-list"></div>
       </div>
 
-      <!-- TAB 3: NOTES -->
-      <div id="tab-notes" class="hub-panel hidden">
+      <!-- NOTES PANEL -->
+      <div id="panel-notes" class="hub-panel hidden">
         <div class="section-bar">
-          <span class="section-title">Study Notes</span>
-          <button class="add-pill-btn" type="button" onclick="toggleForm('note-form')">+ New Note</button>
+          <span class="section-title">Quick Notes</span>
         </div>
-        <form id="note-form" class="hub-form hidden">
-          <div class="hub-row">
-            <input id="note-title" class="hub-input" type="text" placeholder="Title..." required />
-            <input id="note-tag" class="hub-input" type="text" placeholder="Subject" style="max-width: 105px;" />
-          </div>
-          <textarea id="note-content" class="hub-textarea" placeholder="Write formulas, concepts, or reviewers..." required></textarea>
+        <form id="note-form" class="hub-form">
+          <input id="note-title" class="hub-input" type="text" placeholder="Note title" required />
+          <textarea id="note-body" class="hub-textarea" placeholder="Write or paste study notes..." required></textarea>
           <button class="hub-submit-btn" type="submit">Save Note</button>
         </form>
-        <input id="note-search" class="hub-input" type="text" placeholder="Filter notes..." />
-        <div id="note-list" class="hub-list"></div>
+        <div id="notes-list" class="hub-list"></div>
       </div>
 
-      <!-- TAB 4: RESOURCE VAULT -->
-      <div id="tab-vault" class="hub-panel hidden">
+      <!-- STUDY VAULT PANEL -->
+      <div id="panel-vault" class="hub-panel hidden">
         <div class="section-bar">
-          <span class="section-title">Knowledge Database</span>
+          <span class="section-title">Study Vault (RAG)</span>
         </div>
-        <input
-          id="vault-file-input"
-          type="file"
-          class="hidden"
-          multiple
-          accept=".pdf,.pptx,.docx,.txt,.md,.csv,.cs,.java,.py,.sql,.js,.html,.json"
-        />
-        <div id="vault-upload-box" class="vault-drop-btn">
-          <strong>+ Upload Books, PPTX, or Reviewers</strong>
-          <span id="vault-status-text">Indexed locally so J.A.R.V.I.S. can cite pages &amp; slides</span>
+        <input id="vault-file-input" type="file" class="hidden" accept=".pdf,.pptx,.txt,.md,.csv,.json" multiple />
+        <div id="vault-drop-zone" class="vault-drop-btn">
+          <strong>+ Upload Study Material</strong>
+          <span>PDF books, PPTX slides, or text notes</span>
         </div>
         <div id="vault-list" class="hub-list"></div>
       </div>
@@ -1979,1632 +1922,1120 @@
   </section>
 
   <script>
-    const WORKER_URL = "https://jarvis-brain.hydroflouride4.workers.dev";
-    const STORAGE_KEY = "jarvis_session_passcode";
-    const LOCAL_WS_KEY = "jarvis_local_workspace_v2";
-    const THEME_KEY = "jarvis_ui_theme";
+    /* ================= STATE & STORAGE ================= */
+    const STORAGE_KEYS = {
+      apiUrl: "jarvis_api_url",
+      token: "jarvis_auth_token",
+      theme: "jarvis_theme",
+      conversations: "jarvis_conversations_v2",
+      activeConvId: "jarvis_active_conv_v2",
+      schedule: "jarvis_schedule_v2",
+      todos: "jarvis_todos_v2",
+      notes: "jarvis_notes_v2",
+      vault: "jarvis_vault_v2"
+    };
 
-    const loginScreen = document.getElementById("login-screen");
-    const appScreen = document.getElementById("app-screen");
-    const loginForm = document.getElementById("login-form");
-    const passcodeInput = document.getElementById("passcode-input");
-    const loginBtn = document.getElementById("login-btn");
-    const loginError = document.getElementById("login-error");
-
-    const leftSidebar = document.getElementById("left-sidebar");
-    const rightSidebar = document.getElementById("right-sidebar");
-    const drawerBackdrop = document.getElementById("drawer-backdrop");
-    const activeThreadLabel = document.getElementById("active-thread-label");
-
-    const chatScroll = document.getElementById("chat-scroll");
-    const chatContainer = document.getElementById("chat-container");
-    const welcomeView = document.getElementById("welcome-view");
-    const chatForm = document.getElementById("chat-form");
-    const promptInput = document.getElementById("prompt-input");
-    const sendBtn = document.getElementById("send-btn");
-
-    const fileInput = document.getElementById("file-input");
-    const attachBtn = document.getElementById("attach-btn");
-    const attachmentPreview = document.getElementById("attachment-preview");
-    const previewThumb = document.getElementById("preview-thumb");
-    const previewName = document.getElementById("preview-name");
-    const removeAttachBtn = document.getElementById("remove-attach-btn");
-    const dropOverlay = document.getElementById("drop-overlay");
-
-    let activePasscode = localStorage.getItem(STORAGE_KEY) || "";
-    let activeConvId = null;
-    let isSending = false;
-    let isProcessingFile = false;
-    let pendingAttachment = null;
-    let dragCounter = 0;
-
-    let workspace = {
+    const state = {
+      apiUrl: localStorage.getItem(STORAGE_KEYS.apiUrl) || "",
+      token: localStorage.getItem(STORAGE_KEYS.token) || "",
+      theme: localStorage.getItem(STORAGE_KEYS.theme) || "dark",
+      conversations: [],
+      activeConvId: localStorage.getItem(STORAGE_KEYS.activeConvId) || "",
       schedule: [],
       todos: [],
       notes: [],
-      conversations: [],
-      vaultCatalog: [],
+      vault: [],
+      pendingAttachment: null,
+      isSending: false
     };
 
-    const BRAND_ICON = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
-      </svg>
-    `;
-
-    // ================= THEME SWITCHER =================
-    function applyTheme(theme) {
-      const resolved = theme === "light" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", resolved);
-      localStorage.setItem(THEME_KEY, resolved);
-      document.querySelector('meta[name="theme-color"]').setAttribute(
-        "content",
-        resolved === "light" ? "#f8f9fb" : "#111215"
-      );
-      document.getElementById("theme-icon-sun").classList.toggle("hidden", resolved === "light");
-      document.getElementById("theme-icon-moon").classList.toggle("hidden", resolved === "dark");
-    }
-
-    applyTheme(localStorage.getItem(THEME_KEY) || "dark");
-
-    document.getElementById("theme-toggle-btn").addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme");
-      applyTheme(current === "dark" ? "light" : "dark");
-    });
-
-    window.toggleForm = function (formId) {
-      const el = document.getElementById(formId);
-      if (el) el.classList.toggle("hidden");
-    };
-
-    // ================= INDEXEDDB FOR BOOKS & PPTX VAULT =================
-    function openVaultDB() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open("JarvisVaultDB", 1);
-        req.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains("resources")) {
-            db.createObjectStore("resources", { keyPath: "id" });
-          }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    async function saveVaultRecord(record) {
-      const db = await openVaultDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("resources", "readwrite");
-        tx.objectStore("resources").put(record);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-
-    async function getAllVaultRecords() {
-      const db = await openVaultDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("resources", "readonly");
-        const req = tx.objectStore("resources").getAll();
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    async function deleteVaultRecord(id) {
-      const db = await openVaultDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("resources", "readwrite");
-        tx.objectStore("resources").delete(id);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-
-    async function queryResourceVault(query, priorityResourceId = null) {
-      const stopWords = new Set([
-        "the", "and", "for", "that", "this", "with", "from", "what", "when", "where",
-        "which", "who", "whom", "whose", "why", "how", "about", "into", "through",
-        "during", "before", "after", "above", "below", "between", "under", "again",
-        "further", "then", "once", "here", "there", "all", "any", "both", "each",
-        "few", "more", "most", "other", "some", "such", "only", "own", "same", "than",
-        "too", "very", "can", "will", "just", "should", "now", "jarvis", "sir", "please",
-        "explain", "tell", "give", "using", "based", "book", "ppt", "notes", "slide", "page"
-      ]);
-
-      const keywords = (query || "")
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, " ")
-        .split(/\s+/)
-        .filter((w) => w.length > 2 && !stopWords.has(w));
-
-      const records = await getAllVaultRecords();
-      const candidates = [];
-
-      for (const rec of records) {
-        const chunks = rec.chunks || [];
-        for (const ch of chunks) {
-          const lower = ch.text.toLowerCase();
-          let score = rec.id === priorityResourceId ? 5 : 0;
-          for (const kw of keywords) {
-            if (lower.includes(kw)) {
-              score += 2;
-              if (rec.name.toLowerCase().includes(kw)) score += 1;
-            }
-          }
-          if (score > 0 || (keywords.length === 0 && records.length > 0)) {
-            candidates.push({
-              score: score || 1,
-              source: `[Vault: "${rec.name}" — ${ch.label}]`,
-              text: ch.text,
-            });
-          }
-        }
-      }
-
-      for (const note of workspace.notes || []) {
-        const combined = `${note.title} ${note.tag} ${note.content}`.toLowerCase();
-        let score = 0;
-        for (const kw of keywords) {
-          if (combined.includes(kw)) score += 2;
-        }
-        if (score > 0) {
-          candidates.push({
-            score,
-            source: `[Saved Note: "${note.title}" (${note.tag || "General"})]`,
-            text: note.content,
-          });
-        }
-      }
-
-      candidates.sort((a, b) => b.score - a.score);
-      const top = candidates.slice(0, 6);
-      if (top.length === 0) return "";
-
-      return top
-        .map((item) => `${item.source}\n${item.text.slice(0, 1800)}`)
-        .join("\n\n---\n\n");
-    }
-
-    // ================= WORKSPACE SYNC & PERSISTENCE =================
-    function saveLocalWorkspace() {
+    function loadLocalData() {
       try {
-        localStorage.setItem(LOCAL_WS_KEY, JSON.stringify(workspace));
-      } catch (e) {}
-    }
-
-    function loadLocalWorkspace() {
-      try {
-        const raw = localStorage.getItem(LOCAL_WS_KEY);
-        if (raw) {
-          workspace = { ...workspace, ...JSON.parse(raw) };
-        }
-      } catch (e) {}
-    }
-
-    let syncTimer = null;
-    function scheduleCloudWorkspaceSync() {
-      saveLocalWorkspace();
-      renderAllHubPanels();
-      clearTimeout(syncTimer);
-      syncTimer = setTimeout(async () => {
-        if (!activePasscode) return;
-        const trimmedConvs = (workspace.conversations || []).slice(0, 20).map((c) => ({
-          id: c.id,
-          title: c.title,
-          updatedAt: c.updatedAt,
-          messages: (c.messages || []).slice(-24),
-        }));
-        try {
-          await fetch(`${WORKER_URL}/workspace`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Passcode": activePasscode,
-            },
-            body: JSON.stringify({
-              ...workspace,
-              conversations: trimmedConvs,
-            }),
-          });
-        } catch (e) {}
-      }, 1500);
-    }
-
-    async function fetchCloudWorkspace() {
-      if (!activePasscode) return;
-      try {
-        const res = await fetch(`${WORKER_URL}/workspace`, {
-          headers: { "X-Passcode": activePasscode },
-        });
-        if (res.ok) {
-          const cloud = await res.json();
-          if (cloud && typeof cloud === "object") {
-            if (Array.isArray(cloud.schedule) && cloud.schedule.length) workspace.schedule = cloud.schedule;
-            if (Array.isArray(cloud.todos) && cloud.todos.length) workspace.todos = cloud.todos;
-            if (Array.isArray(cloud.notes) && cloud.notes.length) workspace.notes = cloud.notes;
-            if (Array.isArray(cloud.conversations) && cloud.conversations.length) {
-              const localIds = new Set(workspace.conversations.map((c) => c.id));
-              for (const c of cloud.conversations) {
-                if (!localIds.has(c.id)) workspace.conversations.push(c);
-              }
-            }
-            saveLocalWorkspace();
-            renderAllHubPanels();
-          }
-        }
-      } catch (e) {}
-    }
-
-    // ================= DRAWER & NAVIGATION CONTROLS =================
-    function isCompactViewport() {
-      return window.innerWidth <= 1024;
-    }
-
-    function updateBackdrop() {
-      if (!isCompactViewport()) {
-        drawerBackdrop.classList.remove("active");
-        return;
-      }
-      const leftOpen = !leftSidebar.classList.contains("collapsed");
-      const rightOpen = !rightSidebar.classList.contains("collapsed");
-      drawerBackdrop.classList.toggle("active", leftOpen || rightOpen);
-    }
-
-    if (isCompactViewport()) {
-      leftSidebar.classList.add("collapsed");
-      rightSidebar.classList.add("collapsed");
-    }
-
-    function toggleLeftSidebar() {
-      leftSidebar.classList.toggle("collapsed");
-      if (isCompactViewport() && !leftSidebar.classList.contains("collapsed")) {
-        rightSidebar.classList.add("collapsed");
-      }
-      updateBackdrop();
-    }
-
-    document.getElementById("toggle-left-btn").addEventListener("click", toggleLeftSidebar);
-    document.getElementById("collapse-left-btn").addEventListener("click", toggleLeftSidebar);
-
-    document.getElementById("toggle-right-btn").addEventListener("click", () => {
-      rightSidebar.classList.toggle("collapsed");
-      if (isCompactViewport() && !rightSidebar.classList.contains("collapsed")) {
-        leftSidebar.classList.add("collapsed");
-      }
-      updateBackdrop();
-    });
-
-    document.getElementById("close-right-btn").addEventListener("click", () => {
-      rightSidebar.classList.add("collapsed");
-      updateBackdrop();
-    });
-
-    drawerBackdrop.addEventListener("click", () => {
-      leftSidebar.classList.add("collapsed");
-      rightSidebar.classList.add("collapsed");
-      updateBackdrop();
-    });
-
-    document.querySelectorAll(".hub-tab").forEach((tabBtn) => {
-      tabBtn.addEventListener("click", () => {
-        document.querySelectorAll(".hub-tab").forEach((b) => b.classList.remove("active"));
-        tabBtn.classList.add("active");
-        const target = tabBtn.getAttribute("data-tab");
-        document.querySelectorAll(".hub-panel").forEach((p) => p.classList.add("hidden"));
-        document.getElementById(`tab-${target}`).classList.remove("hidden");
-      });
-    });
-
-    window.openCommandHubTab = function (tabName) {
-      rightSidebar.classList.remove("collapsed");
-      if (isCompactViewport()) leftSidebar.classList.add("collapsed");
-      updateBackdrop();
-      const btn = document.querySelector(`.hub-tab[data-tab="${tabName}"]`);
-      if (btn) btn.click();
-    };
-
-    // ================= CONVERSATIONS SIDEBAR =================
-    function getActiveConversation() {
-      return workspace.conversations.find((c) => c.id === activeConvId) || null;
-    }
-
-    function startNewConversation() {
-      activeConvId = null;
-      activeThreadLabel.textContent = "New session";
-      clearAttachment();
-      chatContainer.innerHTML = "";
-      chatContainer.appendChild(welcomeView);
-      welcomeView.classList.remove("hidden");
-      renderConversationList();
-      if (isCompactViewport()) {
-        leftSidebar.classList.add("collapsed");
-        updateBackdrop();
+        state.conversations = JSON.parse(localStorage.getItem(STORAGE_KEYS.conversations) || "[]");
+        state.schedule = JSON.parse(localStorage.getItem(STORAGE_KEYS.schedule) || "[]");
+        state.todos = JSON.parse(localStorage.getItem(STORAGE_KEYS.todos) || "[]");
+        state.notes = JSON.parse(localStorage.getItem(STORAGE_KEYS.notes) || "[]");
+        state.vault = JSON.parse(localStorage.getItem(STORAGE_KEYS.vault) || "[]");
+      } catch {
+        state.conversations = [];
+        state.schedule = [];
+        state.todos = [];
+        state.notes = [];
+        state.vault = [];
       }
     }
 
-    function loadConversation(convId) {
-      const conv = workspace.conversations.find((c) => c.id === convId);
-      if (!conv) return;
-      activeConvId = conv.id;
-      activeThreadLabel.textContent = conv.title || "Conversation";
-      clearAttachment();
-      chatContainer.innerHTML = "";
-      welcomeView.classList.add("hidden");
-
-      for (const msg of conv.messages || []) {
-        if (msg.role === "user") {
-          appendUserMessage(msg.text, msg.attachmentBadge ? { badgeText: msg.attachmentBadge } : null, false);
-        } else {
-          appendAIMessage({ reply: msg.text }, false);
-        }
-      }
-      renderConversationList();
-      scrollToBottom();
-      if (isCompactViewport()) {
-        leftSidebar.classList.add("collapsed");
-        updateBackdrop();
-      }
-    }
-
-    function renderConversationList() {
-      const listEl = document.getElementById("conversation-list");
-      const filter = (document.getElementById("conv-search").value || "").toLowerCase();
-      const filtered = (workspace.conversations || []).filter((c) =>
-        (c.title || "").toLowerCase().includes(filter)
-      );
-
-      if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="empty-hint">No past conversations</div>`;
-        return;
-      }
-
-      listEl.innerHTML = "";
-      for (const conv of filtered) {
-        const item = document.createElement("div");
-        item.className = `conv-item ${conv.id === activeConvId ? "active" : ""}`;
-        item.innerHTML = `
-          <div class="conv-meta">
-            <div class="conv-title">${escapeHtml(conv.title || "Untitled Session")}</div>
-            <div class="conv-date">${escapeHtml(conv.updatedAt || "")}</div>
-          </div>
-          <button class="conv-del-btn" type="button" title="Delete thread">&times;</button>
-        `;
-        item.querySelector(".conv-meta").addEventListener("click", () => loadConversation(conv.id));
-        item.querySelector(".conv-del-btn").addEventListener("click", (e) => {
-          e.stopPropagation();
-          workspace.conversations = workspace.conversations.filter((c) => c.id !== conv.id);
-          if (activeConvId === conv.id) startNewConversation();
-          scheduleCloudWorkspaceSync();
-        });
-        listEl.appendChild(item);
-      }
-    }
-
-    document.getElementById("conv-search").addEventListener("input", renderConversationList);
-    document.getElementById("new-chat-btn").addEventListener("click", startNewConversation);
-
-    // ================= COMMAND HUB RENDERERS =================
-    function escapeHtml(str) {
-      return (str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    }
-
-    async function updateCounts() {
-      const pendingTodos = (workspace.todos || []).filter((t) => !t.done).length;
-      const upcomingEvents = (workspace.schedule || []).length;
-      const notesCount = (workspace.notes || []).length;
-      const records = await getAllVaultRecords();
-
-      document.getElementById("hub-count-badge").textContent = pendingTodos + upcomingEvents;
-      document.getElementById("nav-sched-count").textContent = upcomingEvents;
-      document.getElementById("nav-todo-count").textContent = pendingTodos;
-      document.getElementById("nav-note-count").textContent = notesCount;
-      document.getElementById("nav-vault-count").textContent = records.length;
-    }
-
-    function renderSchedule() {
-      const list = document.getElementById("schedule-list");
-      const items = [...(workspace.schedule || [])].sort((a, b) =>
-        `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
-      );
-
-      if (items.length === 0) {
-        list.innerHTML = `<div class="empty-hint">No events scheduled. Click "+ Add" above or tell J.A.R.V.I.S. in chat.</div>`;
-        return;
-      }
-
-      list.innerHTML = items
-        .map(
-          (ev) => `
-          <div class="hub-card">
-            <div class="hub-card-top">
-              <span class="hub-card-title">${escapeHtml(ev.title)}</span>
-              <button class="mini-del" type="button" onclick="removeScheduleItem('${ev.id}')">&times;</button>
-            </div>
-            <div class="kv-row">
-              <span>${escapeHtml(ev.date)} • ${escapeHtml(ev.time || "All Day")}</span>
-              <span class="badge ${ev.category === "Exam" ? "amber" : ""}">${escapeHtml(ev.category || "Class")}</span>
-            </div>
-          </div>
-        `
-        )
-        .join("");
-    }
-
-    window.removeScheduleItem = function (id) {
-      workspace.schedule = workspace.schedule.filter((s) => s.id !== id);
-      scheduleCloudWorkspaceSync();
-    };
-
-    document.getElementById("schedule-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const title = document.getElementById("sched-title").value.trim();
-      const date = document.getElementById("sched-date").value;
-      const time = document.getElementById("sched-time").value;
-      const category = document.getElementById("sched-cat").value;
-      if (!title || !date) return;
-
-      workspace.schedule.push({
-        id: Date.now().toString(),
-        title,
-        date,
-        time: time || "All Day",
-        category,
-      });
-      document.getElementById("sched-title").value = "";
-      document.getElementById("schedule-form").classList.add("hidden");
-      scheduleCloudWorkspaceSync();
-    });
-
-    function renderTodos() {
-      const list = document.getElementById("todo-list");
-      const items = workspace.todos || [];
-      const doneCount = items.filter((t) => t.done).length;
-      const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
-      document.getElementById("todo-progress-fill").style.width = `${pct}%`;
-
-      if (items.length === 0) {
-        list.innerHTML = `<div class="empty-hint">No active tasks. Click "+ Add" above to create one.</div>`;
-        return;
-      }
-
-      list.innerHTML = items
-        .map(
-          (t) => `
-          <div class="hub-card">
-            <div class="todo-row">
-              <input class="todo-check" type="checkbox" ${t.done ? "checked" : ""} onchange="toggleTodoItem('${t.id}')" />
-              <span class="todo-text ${t.done ? "done" : ""}">${escapeHtml(t.text)}</span>
-              <span class="badge ${t.priority === "high" ? "danger" : t.priority === "medium" ? "amber" : ""}">${escapeHtml(t.priority)}</span>
-              <button class="mini-del" type="button" onclick="removeTodoItem('${t.id}')">&times;</button>
-            </div>
-          </div>
-        `
-        )
-        .join("");
-    }
-
-    window.toggleTodoItem = function (id) {
-      workspace.todos = workspace.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
-      scheduleCloudWorkspaceSync();
-    };
-
-    window.removeTodoItem = function (id) {
-      workspace.todos = workspace.todos.filter((t) => t.id !== id);
-      scheduleCloudWorkspaceSync();
-    };
-
-    document.getElementById("todo-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const text = document.getElementById("todo-input").value.trim();
-      const priority = document.getElementById("todo-priority").value;
-      if (!text) return;
-
-      workspace.todos.unshift({
-        id: Date.now().toString(),
-        text,
-        priority,
-        done: false,
-      });
-      document.getElementById("todo-input").value = "";
-      document.getElementById("todo-form").classList.add("hidden");
-      scheduleCloudWorkspaceSync();
-    });
-
-    function renderNotes() {
-      const list = document.getElementById("note-list");
-      const filter = (document.getElementById("note-search").value || "").toLowerCase();
-      const items = (workspace.notes || []).filter(
-        (n) =>
-          (n.title || "").toLowerCase().includes(filter) ||
-          (n.content || "").toLowerCase().includes(filter) ||
-          (n.tag || "").toLowerCase().includes(filter)
-      );
-
-      if (items.length === 0) {
-        list.innerHTML = `<div class="empty-hint">No notes yet. Click "+ New Note" or save any J.A.R.V.I.S. reply.</div>`;
-        return;
-      }
-
-      list.innerHTML = items
-        .map(
-          (n) => `
-          <div class="hub-card">
-            <div class="hub-card-top">
-              <span class="hub-card-title">${escapeHtml(n.title)}</span>
-              <button class="mini-del" type="button" onclick="removeNoteItem('${n.id}')">&times;</button>
-            </div>
-            <div class="hub-card-sub">${escapeHtml(n.content.slice(0, 160))}${n.content.length > 160 ? "..." : ""}</div>
-            <div class="mini-actions">
-              <span class="badge">${escapeHtml(n.tag || "Study")}</span>
-              <button class="mini-btn" type="button" onclick="askJarvisAboutNote('${n.id}')">Ask J.A.R.V.I.S.</button>
-            </div>
-          </div>
-        `
-        )
-        .join("");
-    }
-
-    window.removeNoteItem = function (id) {
-      workspace.notes = workspace.notes.filter((n) => n.id !== id);
-      scheduleCloudWorkspaceSync();
-    };
-
-    window.askJarvisAboutNote = function (id) {
-      const note = workspace.notes.find((n) => n.id === id);
-      if (!note) return;
-      if (isCompactViewport()) {
-        rightSidebar.classList.add("collapsed");
-        updateBackdrop();
-      }
-      sendPrompt(`Review my note "${note.title}" and summarize key points or quiz me:\n\n${note.content}`);
-    };
-
-    document.getElementById("note-search").addEventListener("input", renderNotes);
-
-    document.getElementById("note-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const title = document.getElementById("note-title").value.trim();
-      const tag = document.getElementById("note-tag").value.trim() || "Study";
-      const content = document.getElementById("note-content").value.trim();
-      if (!title || !content) return;
-
-      workspace.notes.unshift({
-        id: Date.now().toString(),
-        title,
-        tag,
-        content,
-        updatedAt: new Date().toLocaleDateString(),
-      });
-      document.getElementById("note-title").value = "";
-      document.getElementById("note-content").value = "";
-      document.getElementById("note-form").classList.add("hidden");
-      scheduleCloudWorkspaceSync();
-    });
-
-    // ================= RESOURCE VAULT (BOOKS, PPTX & DOCS DATABASE) =================
-    const vaultFileInput = document.getElementById("vault-file-input");
-    const vaultStatusText = document.getElementById("vault-status-text");
-
-    document.getElementById("vault-upload-box").addEventListener("click", () => {
-      vaultFileInput.click();
-    });
-
-    async function extractPdfChunks(file, onProgress) {
-      if (!window.pdfjsLib) throw new Error("PDF engine still loading. Try again in a moment.");
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const chunks = [];
-
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        if (onProgress && pageNum % 5 === 1) {
-          onProgress(`Indexing page ${pageNum} of ${pdf.numPages}...`);
-        }
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((i) => i.str).join(" ").replace(/\s+/g, " ").trim();
-        if (pageText) {
-          chunks.push({ label: `Page ${pageNum}`, text: pageText });
-        }
-      }
-      return {
-        detail: `${pdf.numPages} pages`,
-        chunks,
-      };
-    }
-
-    async function extractPptxChunks(file, onProgress) {
-      if (!window.JSZip) throw new Error("PPTX engine still loading.");
-      const zip = await JSZip.loadAsync(file);
-      const slideFiles = Object.keys(zip.files)
-        .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
-        .sort((a, b) => {
-          const numA = parseInt(a.match(/slide(\d+)\.xml/i)[1], 10);
-          const numB = parseInt(b.match(/slide(\d+)\.xml/i)[1], 10);
-          return numA - numB;
-        });
-
-      const chunks = [];
-      for (const path of slideFiles) {
-        const slideNum = path.match(/slide(\d+)\.xml/i)[1];
-        if (onProgress) onProgress(`Indexing slide ${slideNum} of ${slideFiles.length}...`);
-
-        const xmlStr = await zip.files[path].async("string");
-        const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
-        const slideText = Array.from(doc.getElementsByTagName("a:t"))
-          .map((n) => n.textContent)
-          .join(" ")
-          .replace(/\s+/g, " ")
-          .trim();
-
-        let notesText = "";
-        const notesFile = zip.files[`ppt/notesSlides/notesSlide${slideNum}.xml`];
-        if (notesFile) {
-          const notesXml = await notesFile.async("string");
-          const notesDoc = new DOMParser().parseFromString(notesXml, "application/xml");
-          notesText = Array.from(notesDoc.getElementsByTagName("a:t"))
-            .map((n) => n.textContent)
-            .join(" ")
-            .replace(/\s+/g, " ")
-            .trim();
-        }
-
-        const combined = [slideText, notesText ? `Notes: ${notesText}` : ""].filter(Boolean).join("\n");
-        if (combined) {
-          chunks.push({ label: `Slide ${slideNum}`, text: combined });
-        }
-      }
-
-      return {
-        detail: `${slideFiles.length} slides`,
-        chunks,
-      };
-    }
-
-    async function extractPlainChunks(file) {
-      let rawText = "";
-      if (file.name.toLowerCase().endsWith(".docx")) {
-        rawText = await extractDocxText(file);
-      } else {
-        rawText = await file.text();
-      }
-      const chunks = [];
-      const chunkSize = 1800;
-      for (let i = 0; i < rawText.length; i += chunkSize) {
-        const partNum = Math.floor(i / chunkSize) + 1;
-        chunks.push({
-          label: `Section ${partNum}`,
-          text: rawText.slice(i, i + chunkSize).trim(),
-        });
-      }
-      return {
-        detail: `${chunks.length} sections`,
-        chunks,
-      };
-    }
-
-    vaultFileInput.addEventListener("change", async (e) => {
-      const files = Array.from(e.target.files || []);
-      if (!files.length) return;
-
-      for (const file of files) {
-        const lower = file.name.toLowerCase();
-        vaultStatusText.textContent = `Indexing ${file.name}...`;
-        try {
-          let parsed;
-          if (lower.endsWith(".pdf")) {
-            parsed = await extractPdfChunks(file, (msg) => (vaultStatusText.textContent = msg));
-          } else if (lower.endsWith(".pptx")) {
-            parsed = await extractPptxChunks(file, (msg) => (vaultStatusText.textContent = msg));
-          } else {
-            parsed = await extractPlainChunks(file);
-          }
-
-          const record = {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: file.name,
-            detail: parsed.detail,
-            addedAt: new Date().toLocaleDateString(),
-            chunks: parsed.chunks,
-          };
-
-          await saveVaultRecord(record);
-          workspace.vaultCatalog = [
-            { id: record.id, name: record.name, detail: record.detail, addedAt: record.addedAt },
-            ...(workspace.vaultCatalog || []).filter((v) => v.name !== record.name),
-          ];
-          scheduleCloudWorkspaceSync();
-          await renderVaultList();
-        } catch (err) {
-          alert(`Failed to index ${file.name}: ${err.message}`);
-        }
-      }
-
-      vaultStatusText.textContent = "Indexed locally so J.A.R.V.I.S. can cite pages & slides";
-      vaultFileInput.value = "";
-    });
-
-    async function renderVaultList() {
-      const list = document.getElementById("vault-list");
-      const records = await getAllVaultRecords();
-
-      if (records.length === 0) {
-        list.innerHTML = `<div class="empty-hint">No resources stored yet. Upload PDF books, class PPTs, or reviewers above.</div>`;
-        return;
-      }
-
-      list.innerHTML = records
-        .map(
-          (r) => `
-          <div class="hub-card">
-            <div class="hub-card-top">
-              <span class="hub-card-title">${escapeHtml(r.name)}</span>
-              <button class="mini-del" type="button" onclick="removeVaultItem('${r.id}')">&times;</button>
-            </div>
-            <div class="kv-row">
-              <span>Coverage</span>
-              <span>${escapeHtml(r.detail || "")}</span>
-            </div>
-            <div class="mini-actions">
-              <span class="badge amber">Indexed</span>
-              <button class="mini-btn" type="button" onclick="querySpecificVaultItem('${r.id}', '${escapeHtml(r.name)}')">Summarize</button>
-            </div>
-          </div>
-        `
-        )
-        .join("");
-    }
-
-    window.removeVaultItem = async function (id) {
-      await deleteVaultRecord(id);
-      workspace.vaultCatalog = (workspace.vaultCatalog || []).filter((v) => v.id !== id);
-      scheduleCloudWorkspaceSync();
-      await renderVaultList();
-    };
-
-    window.querySpecificVaultItem = function (id, name) {
-      if (isCompactViewport()) {
-        rightSidebar.classList.add("collapsed");
-        updateBackdrop();
-      }
-      sendPrompt(`Summarize the main concepts and key takeaways from "${name}" in my Resource Vault.`, id);
-    };
-
-    function renderAllHubPanels() {
-      renderConversationList();
-      renderSchedule();
-      renderTodos();
-      renderNotes();
-      renderVaultList();
+    function persistAll() {
+      localStorage.setItem(STORAGE_KEYS.conversations, JSON.stringify(state.conversations));
+      localStorage.setItem(STORAGE_KEYS.activeConvId, state.activeConvId);
+      localStorage.setItem(STORAGE_KEYS.schedule, JSON.stringify(state.schedule));
+      localStorage.setItem(STORAGE_KEYS.todos, JSON.stringify(state.todos));
+      localStorage.setItem(STORAGE_KEYS.notes, JSON.stringify(state.notes));
+      localStorage.setItem(STORAGE_KEYS.vault, JSON.stringify(state.vault));
       updateCounts();
     }
 
-    // ================= AUTH & SESSION INIT =================
-    function scrollToBottom() {
-      requestAnimationFrame(() => {
-        chatScroll.scrollTop = chatScroll.scrollHeight;
-      });
+    /* ================= DOM HELPERS ================= */
+    const $ = (id) => document.getElementById(id);
+
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     }
 
-    function clearAttachment() {
-      pendingAttachment = null;
-      isProcessingFile = false;
-      sendBtn.disabled = false;
-      fileInput.value = "";
-      previewThumb.src = "";
-      previewThumb.classList.add("hidden");
-      attachmentPreview.classList.add("hidden");
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
 
-    function showApp() {
-      loginScreen.classList.add("hidden");
-      appScreen.classList.remove("hidden");
-      loadLocalWorkspace();
-      renderAllHubPanels();
-      fetchCloudWorkspace();
-      if (window.innerWidth > 600) promptInput.focus();
-    }
-
-    function showLogin(errorMsg = "") {
-      appScreen.classList.add("hidden");
-      loginScreen.classList.remove("hidden");
-      loginError.textContent = errorMsg;
-      passcodeInput.value = "";
-      if (window.innerWidth > 600) passcodeInput.focus();
-    }
-
-    function logoutUser(reason = "") {
-      activePasscode = "";
-      localStorage.removeItem(STORAGE_KEY);
-      startNewConversation();
-      showLogin(reason);
-    }
-
-    if (activePasscode) {
-      showApp();
-    } else {
-      showLogin();
-    }
-
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const candidate = passcodeInput.value.trim();
-      if (!candidate) return;
-
-      loginBtn.disabled = true;
-      loginBtn.textContent = "Signing in...";
-      loginError.textContent = "";
-
+    async function copyToClipboard(text, btnEl, defaultLabel = "Copy") {
       try {
-        const res = await fetch(WORKER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "jarvis", passcode: candidate, history: [] }),
-        });
-
-        if (res.status === 401) {
-          loginError.textContent = "Invalid passcode. Access denied.";
-        } else if (res.ok) {
-          activePasscode = candidate;
-          localStorage.setItem(STORAGE_KEY, candidate);
-          showApp();
-        } else {
-          loginError.textContent = `System error (${res.status}). Try again.`;
-        }
-      } catch (err) {
-        loginError.textContent = "Cannot reach J.A.R.V.I.S. core. Check connection.";
-      } finally {
-        loginBtn.disabled = false;
-        loginBtn.textContent = "Continue";
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
       }
-    });
+      if (btnEl) {
+        btnEl.textContent = "Copied";
+        setTimeout(() => {
+          btnEl.textContent = defaultLabel;
+        }, 1500);
+      }
+    }
 
-    document.getElementById("logout-btn").addEventListener("click", () => logoutUser());
+    /* ================= THEME ================= */
+    function applyTheme(theme) {
+      state.theme = theme === "light" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", state.theme);
+      localStorage.setItem(STORAGE_KEYS.theme, state.theme);
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (metaTheme) {
+        metaTheme.setAttribute("content", state.theme === "dark" ? "#111215" : "#ffffff");
+      }
+      $("theme-icon-sun").classList.toggle("hidden", state.theme === "light");
+      $("theme-icon-moon").classList.toggle("hidden", state.theme === "dark");
+    }
 
-    // ================= ATTACHMENTS, SNIPS & PPTX EXTRACTION =================
-    attachBtn.addEventListener("click", () => {
-      if (!isProcessingFile) fileInput.click();
-    });
-    removeAttachBtn.addEventListener("click", clearAttachment);
+    /* ================= DRAWERS & NAVIGATION ================= */
+    function syncBackdrop() {
+      const isMobile = window.innerWidth <= 1024;
+      const leftOpen = !$("left-sidebar").classList.contains("collapsed");
+      const rightOpen = !$("right-sidebar").classList.contains("collapsed");
+      $("drawer-backdrop").classList.toggle("active", isMobile && (leftOpen || rightOpen));
+    }
 
-    function inferMimeType(file) {
-      if (file.type) return file.type;
-      const ext = file.name.split(".").pop().toLowerCase();
-      const map = {
-        mp3: "audio/mpeg",
-        m4a: "audio/mp4",
-        wav: "audio/wav",
-        ogg: "audio/ogg",
-        mp4: "video/mp4",
-        webm: "video/webm",
-        mov: "video/quicktime",
-        pdf: "application/pdf",
-        png: "image/png",
-        jpg: "image/jpeg",
-        jpeg: "image/jpeg",
-        webp: "image/webp",
+    function openLeftSidebar() {
+      if (window.innerWidth <= 1024) $("right-sidebar").classList.add("collapsed");
+      $("left-sidebar").classList.remove("collapsed");
+      syncBackdrop();
+    }
+
+    function closeLeftSidebar() {
+      $("left-sidebar").classList.add("collapsed");
+      syncBackdrop();
+    }
+
+    function openRightSidebar() {
+      if (window.innerWidth <= 1024) $("left-sidebar").classList.add("collapsed");
+      $("right-sidebar").classList.remove("collapsed");
+      syncBackdrop();
+    }
+
+    function closeRightSidebar() {
+      $("right-sidebar").classList.add("collapsed");
+      syncBackdrop();
+    }
+
+    window.openCommandHubTab = function (tabName) {
+      document.querySelectorAll(".hub-tab").forEach((t) => {
+        t.classList.toggle("active", t.dataset.tab === tabName);
+      });
+      ["schedule", "todo", "notes", "vault"].forEach((name) => {
+        $("panel-" + name).classList.toggle("hidden", name !== tabName);
+      });
+      openRightSidebar();
+    };
+
+    /* ================= GEMINI-STYLE SELECT TEXT MODAL ================= */
+    function openSelectTextModal(rawText) {
+      $("select-sheet-body").textContent = rawText;
+      $("select-modal").classList.remove("hidden");
+    }
+
+    function closeSelectTextModal() {
+      $("select-modal").classList.add("hidden");
+      $("select-sheet-body").textContent = "";
+    }
+
+    /* ================= SERVER URL MODAL ================= */
+    function openServerModal() {
+      $("server-url-input").value = state.apiUrl;
+      $("server-modal").classList.remove("hidden");
+    }
+
+    function closeServerModal() {
+      $("server-modal").classList.add("hidden");
+    }
+
+    /* ================= MARKDOWN RENDERER ================= */
+    function renderMarkdown(raw) {
+      const text = String(raw || "").replace(/\r\n/g, "\n");
+      const codeBlocks = [];
+      const withPlaceholders = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+        const idx = codeBlocks.length;
+        codeBlocks.push({ lang: lang || "code", code: code.replace(/\n$/, "") });
+        return `\u0000CODEBLOCK_${idx}\u0000`;
+      });
+
+      const lines = withPlaceholders.split("\n");
+      const htmlParts = [];
+      let paragraphLines = [];
+      let listType = null;
+
+      function flushParagraph() {
+        if (!paragraphLines.length) return;
+        const joined = paragraphLines.map(formatInline).join("<br>");
+        htmlParts.push(`<p>${joined}</p>`);
+        paragraphLines = [];
+      }
+
+      function flushList() {
+        if (!listType) return;
+        htmlParts.push(listType === "ul" ? "</ul>" : "</ol>");
+        listType = null;
+      }
+
+      function formatInline(line) {
+        let safe = escapeHtml(line);
+        safe = safe.replace(/`([^`]+)`/g, "<code>$1</code>");
+        safe = safe.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        safe = safe.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+        return safe;
+      }
+
+      for (const line of lines) {
+        const cbMatch = line.trim().match(/^\u0000CODEBLOCK_(\d+)\u0000$/);
+        if (cbMatch) {
+          flushParagraph();
+          flushList();
+          const block = codeBlocks[Number(cbMatch[1])];
+          htmlParts.push(
+            `<div class="code-wrapper" data-code-idx="${cbMatch[1]}">` +
+              `<div class="code-header"><span>${escapeHtml(block.lang)}</span>` +
+              `<button class="copy-code-btn" type="button">Copy</button></div>` +
+              `<pre><code>${escapeHtml(block.code)}</code></pre>` +
+            `</div>`
+          );
+          continue;
+        }
+
+        if (!line.trim()) {
+          flushParagraph();
+          flushList();
+          continue;
+        }
+
+        const hMatch = line.match(/^#{1,3}\s+(.*)$/);
+        if (hMatch) {
+          flushParagraph();
+          flushList();
+          htmlParts.push(`<h3>${formatInline(hMatch[1])}</h3>`);
+          continue;
+        }
+
+        const bqMatch = line.match(/^>\s+(.*)$/);
+        if (bqMatch) {
+          flushParagraph();
+          flushList();
+          htmlParts.push(`<blockquote>${formatInline(bqMatch[1])}</blockquote>`);
+          continue;
+        }
+
+        const ulMatch = line.match(/^[-*]\s+(.*)$/);
+        if (ulMatch) {
+          flushParagraph();
+          if (listType !== "ul") {
+            flushList();
+            htmlParts.push("<ul>");
+            listType = "ul";
+          }
+          htmlParts.push(`<li>${formatInline(ulMatch[1])}</li>`);
+          continue;
+        }
+
+        const olMatch = line.match(/^\d+\.\s+(.*)$/);
+        if (olMatch) {
+          flushParagraph();
+          if (listType !== "ol") {
+            flushList();
+            htmlParts.push("<ol>");
+            listType = "ol";
+          }
+          htmlParts.push(`<li>${formatInline(olMatch[1])}</li>`);
+          continue;
+        }
+
+        flushList();
+        paragraphLines.push(line);
+      }
+
+      flushParagraph();
+      flushList();
+
+      let output = htmlParts.join("");
+      output = output.replace(/\u0000CODEBLOCK_(\d+)\u0000/g, (_, idx) => {
+        const block = codeBlocks[Number(idx)];
+        return (
+          `<div class="code-wrapper" data-code-idx="${idx}">` +
+            `<div class="code-header"><span>${escapeHtml(block.lang)}</span>` +
+            `<button class="copy-code-btn" type="button">Copy</button></div>` +
+            `<pre><code>${escapeHtml(block.code)}</code></pre>` +
+          `</div>`
+        );
+      });
+
+      return { html: output, codeBlocks };
+    }
+
+    /* ================= CONVERSATIONS & CHAT RENDERING ================= */
+    function getActiveConversation() {
+      return state.conversations.find((c) => c.id === state.activeConvId) || null;
+    }
+
+    function createNewConversation(initialTitle = "New chat") {
+      const conv = {
+        id: uid(),
+        title: initialTitle,
+        updatedAt: Date.now(),
+        messages: []
       };
-      return map[ext] || "application/octet-stream";
+      state.conversations.unshift(conv);
+      state.activeConvId = conv.id;
+      persistAll();
+      renderConversationList();
+      renderActiveChat();
+      return conv;
     }
 
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result || "";
-          resolve({ base64: result.split(",")[1], dataUrl: result });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
+    function renderConversationList() {
+      const query = $("conv-search").value.trim().toLowerCase();
+      const listEl = $("conversation-list");
+      listEl.innerHTML = "";
 
-    function compressImageBlob(blob, maxDim = 1280, quality = 0.82) {
-      return new Promise((resolve) => {
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          if (img.width < 75 || img.height < 75) {
-            resolve(null);
-            return;
-          }
-          let width = img.width;
-          let height = img.height;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL("image/jpeg", quality);
-          resolve({
-            base64: dataUrl.split(",")[1],
-            dataUrl,
-            mimeType: "image/jpeg",
-          });
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          resolve(null);
-        };
-        img.src = url;
-      });
-    }
+      const filtered = state.conversations.filter((c) =>
+        (c.title || "New chat").toLowerCase().includes(query)
+      );
 
-    async function extractPptxDeep(file, onProgress) {
-      if (!window.JSZip) throw new Error("PPTX parser still loading.");
-      const zip = await JSZip.loadAsync(file);
-
-      const slideFiles = Object.keys(zip.files)
-        .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
-        .sort((a, b) => {
-          const numA = parseInt(a.match(/slide(\d+)\.xml/i)[1], 10);
-          const numB = parseInt(b.match(/slide(\d+)\.xml/i)[1], 10);
-          return numA - numB;
-        });
-
-      const slidesData = [];
-      const mediaUsageCount = {};
-
-      for (const path of slideFiles) {
-        const slideNum = path.match(/slide(\d+)\.xml/i)[1];
-        if (onProgress) onProgress(`Scanning Slide ${slideNum} of ${slideFiles.length}...`);
-
-        const xmlStr = await zip.files[path].async("string");
-        const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
-        const slideText = Array.from(doc.getElementsByTagName("a:t"))
-          .map((n) => n.textContent)
-          .join(" ")
-          .replace(/\s+/g, " ")
-          .trim();
-
-        let notesText = "";
-        const notesFile = zip.files[`ppt/notesSlides/notesSlide${slideNum}.xml`];
-        if (notesFile) {
-          const notesXml = await notesFile.async("string");
-          const notesDoc = new DOMParser().parseFromString(notesXml, "application/xml");
-          notesText = Array.from(notesDoc.getElementsByTagName("a:t"))
-            .map((n) => n.textContent)
-            .join(" ")
-            .replace(/\s+/g, " ")
-            .trim();
-        }
-
-        const relsFile = zip.files[`ppt/slides/_rels/slide${slideNum}.xml.rels`];
-        const imagePaths = [];
-        if (relsFile) {
-          const relsXml = await relsFile.async("string");
-          const relsDoc = new DOMParser().parseFromString(relsXml, "application/xml");
-          for (const rel of Array.from(relsDoc.getElementsByTagName("Relationship"))) {
-            const type = rel.getAttribute("Type") || "";
-            const target = rel.getAttribute("Target") || "";
-            if (type.endsWith("/image") && target) {
-              const normalized = target.replace(/^\.\.\//, "ppt/");
-              if (zip.files[normalized] && /\.(png|jpe?g|gif|webp|bmp)$/i.test(normalized)) {
-                imagePaths.push(normalized);
-                mediaUsageCount[normalized] = (mediaUsageCount[normalized] || 0) + 1;
-              }
-            }
-          }
-        }
-
-        slidesData.push({
-          slideNum: parseInt(slideNum, 10),
-          text: slideText,
-          notes: notesText,
-          imagePaths: [...new Set(imagePaths)],
-        });
-      }
-
-      const prioritizedSlides = [...slidesData].sort((a, b) => {
-        const aIsVisualOnly = a.text.length < 40 && a.imagePaths.length > 0 ? 0 : 1;
-        const bIsVisualOnly = b.text.length < 40 && b.imagePaths.length > 0 ? 0 : 1;
-        if (aIsVisualOnly !== bIsVisualOnly) return aIsVisualOnly - bIsVisualOnly;
-        return a.slideNum - b.slideNum;
-      });
-
-      const extractedImages = [];
-      const seenMedia = new Set();
-
-      for (const slide of prioritizedSlides) {
-        if (extractedImages.length >= 28) break;
-        for (const imgPath of slide.imagePaths) {
-          if (extractedImages.length >= 28) break;
-          if (mediaUsageCount[imgPath] > 4 || seenMedia.has(imgPath)) continue;
-          seenMedia.add(imgPath);
-
-          const blob = await zip.files[imgPath].async("blob");
-          if (blob.size < 3500) continue;
-          const compressed = await compressImageBlob(blob, 1280, 0.82);
-          if (compressed) {
-            extractedImages.push({
-              slideNum: slide.slideNum,
-              slideLabel: `Slide ${slide.slideNum}`,
-              mimeType: compressed.mimeType,
-              data: compressed.base64,
-            });
-          }
-        }
-      }
-
-      extractedImages.sort((a, b) => a.slideNum - b.slideNum);
-
-      const textSummary = slidesData
-        .map((s) => {
-          const parts = [`[Slide ${s.slideNum}]`];
-          if (s.text) parts.push(s.text);
-          else if (s.imagePaths.length > 0) parts.push("(Visual/Image-only slide — see attached slide image)");
-          if (s.notes) parts.push(`Speaker Notes: ${s.notes}`);
-          return parts.join("\n");
-        })
-        .join("\n\n");
-
-      return {
-        slideCount: slidesData.length,
-        slidesText: textSummary,
-        slideImages: extractedImages,
-      };
-    }
-
-    async function extractDocxText(file) {
-      if (!window.JSZip) throw new Error("DOCX parser still loading.");
-      const zip = await JSZip.loadAsync(file);
-      const docXml = zip.files["word/document.xml"];
-      if (!docXml) return "No readable text found.";
-      const xmlStr = await docXml.async("string");
-      const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
-      return Array.from(doc.getElementsByTagName("w:p"))
-        .map((p) => Array.from(p.getElementsByTagName("w:t")).map((t) => t.textContent).join(""))
-        .filter(Boolean)
-        .join("\n");
-    }
-
-    async function uploadLargeMediaToGemini(file, mimeType) {
-      const res = await fetch(`${WORKER_URL}/upload`, {
-        method: "POST",
-        headers: {
-          "X-Passcode": activePasscode,
-          "X-Mime-Type": mimeType,
-          "X-File-Name": encodeURIComponent(file.name),
-        },
-        body: file,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.fileUri) throw new Error(data.error || `Upload failed (${res.status})`);
-      return data;
-    }
-
-    async function processSelectedFile(file) {
-      if (!file || isProcessingFile) return;
-      if (file.size > 95 * 1024 * 1024) {
-        alert("Please select a file under 95 MB.");
+      if (!filtered.length) {
+        listEl.innerHTML = `<div class="empty-hint">No chats yet</div>`;
         return;
       }
 
-      isProcessingFile = true;
-      sendBtn.disabled = true;
+      filtered.forEach((conv) => {
+        const item = document.createElement("div");
+        item.className = "conv-item" + (conv.id === state.activeConvId ? " active" : "");
 
-      const lowerName = file.name.toLowerCase();
-      const mimeType = inferMimeType(file);
-      previewName.textContent = `Processing ${file.name}...`;
-      previewThumb.classList.add("hidden");
-      attachmentPreview.classList.remove("hidden");
+        const meta = document.createElement("div");
+        meta.className = "conv-meta";
+        const title = document.createElement("div");
+        title.className = "conv-title";
+        title.textContent = conv.title || "New chat";
+        meta.appendChild(title);
 
-      try {
-        if (lowerName.endsWith(".pptx")) {
-          const pptxResult = await extractPptxDeep(file, (msg) => (previewName.textContent = msg));
-          pendingAttachment = {
-            type: "pptx",
-            name: file.name,
-            slideCount: pptxResult.slideCount,
-            slidesText: pptxResult.slidesText,
-            slideImages: pptxResult.slideImages,
-            badgeText: `PPTX: ${file.name} (${pptxResult.slideCount} slides, ${pptxResult.slideImages.length} visuals)`,
-          };
-          previewName.textContent = pendingAttachment.badgeText;
-        } else if (lowerName.endsWith(".docx")) {
-          const textContent = await extractDocxText(file);
-          pendingAttachment = {
-            type: "text",
-            name: file.name,
-            content: textContent,
-            badgeText: `Word Doc: ${file.name}`,
-          };
-          previewName.textContent = pendingAttachment.badgeText;
-        } else if (mimeType.startsWith("image/")) {
-          const compressed = await compressImageBlob(file, 1600, 0.88);
-          if (compressed) {
-            pendingAttachment = {
-              type: "inline",
-              mimeType: compressed.mimeType,
-              data: compressed.base64,
-              name: file.name,
-              previewUrl: compressed.dataUrl,
-              badgeText: `Image: ${file.name}`,
-            };
-          } else {
-            const { base64, dataUrl } = await fileToBase64(file);
-            pendingAttachment = {
-              type: "inline",
-              mimeType,
-              data: base64,
-              name: file.name,
-              previewUrl: dataUrl,
-              badgeText: `Image: ${file.name}`,
-            };
+        const delBtn = document.createElement("button");
+        delBtn.className = "conv-del-btn";
+        delBtn.type = "button";
+        delBtn.title = "Delete chat";
+        delBtn.innerHTML = "&times;";
+        delBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          state.conversations = state.conversations.filter((c) => c.id !== conv.id);
+          if (state.activeConvId === conv.id) {
+            state.activeConvId = state.conversations[0]?.id || "";
           }
-          previewName.textContent = file.name;
-          previewThumb.src = pendingAttachment.previewUrl;
-          previewThumb.classList.remove("hidden");
-        } else if (
-          mimeType.startsWith("audio/") ||
-          mimeType.startsWith("video/") ||
-          mimeType === "application/pdf"
-        ) {
-          const kindLabel = mimeType.startsWith("audio/")
-            ? "Audio"
-            : mimeType.startsWith("video/")
-            ? "Video"
-            : "PDF";
+          persistAll();
+          renderConversationList();
+          renderActiveChat();
+        });
 
-          if (file.size <= 10 * 1024 * 1024) {
-            const { base64 } = await fileToBase64(file);
-            pendingAttachment = {
-              type: "inline",
-              mimeType,
-              data: base64,
-              name: file.name,
-              badgeText: `${kindLabel}: ${file.name}`,
-            };
-          } else {
-            previewName.textContent = `Uploading ${kindLabel.toLowerCase()} (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`;
-            const uploaded = await uploadLargeMediaToGemini(file, mimeType);
-            pendingAttachment = {
-              type: "file_uri",
-              mimeType: uploaded.mimeType,
-              fileUri: uploaded.fileUri,
-              name: file.name,
-              badgeText: `${kindLabel}: ${file.name}`,
-            };
-          }
-          previewName.textContent = pendingAttachment.badgeText;
-        } else {
-          const textContent = await file.text();
-          pendingAttachment = {
-            type: "text",
-            name: file.name,
-            content: textContent,
-            badgeText: `File: ${file.name}`,
-          };
-          previewName.textContent = pendingAttachment.badgeText;
-        }
-      } catch (err) {
-        alert(err.message || "Could not process that file.");
-        clearAttachment();
-      } finally {
-        isProcessingFile = false;
-        sendBtn.disabled = false;
-        if (window.innerWidth > 600) promptInput.focus();
-      }
-    }
+        item.addEventListener("click", () => {
+          state.activeConvId = conv.id;
+          persistAll();
+          renderConversationList();
+          renderActiveChat();
+          if (window.innerWidth <= 1024) closeLeftSidebar();
+        });
 
-    fileInput.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0];
-      if (file) await processSelectedFile(file);
-    });
-
-    document.addEventListener("paste", async (e) => {
-      if (appScreen.classList.contains("hidden") || isProcessingFile) return;
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      for (const item of items) {
-        if (item.kind === "file") {
-          const blob = item.getAsFile();
-          if (blob) {
-            e.preventDefault();
-            const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
-            const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, "");
-            const namedFile =
-              blob.name && blob.name !== "image.png"
-                ? blob
-                : new File([blob], `snip-${stamp}.${ext}`, { type: blob.type || "image/png" });
-            await processSelectedFile(namedFile);
-            return;
-          }
-        }
-      }
-    });
-
-    window.addEventListener("dragenter", (e) => {
-      if (appScreen.classList.contains("hidden")) return;
-      if (e.dataTransfer?.types?.includes("Files")) {
-        dragCounter++;
-        dropOverlay.classList.remove("hidden");
-      }
-    });
-
-    window.addEventListener("dragleave", () => {
-      dragCounter = Math.max(0, dragCounter - 1);
-      if (dragCounter === 0) dropOverlay.classList.add("hidden");
-    });
-
-    window.addEventListener("dragover", (e) => {
-      if (!appScreen.classList.contains("hidden")) e.preventDefault();
-    });
-
-    window.addEventListener("drop", async (e) => {
-      if (appScreen.classList.contains("hidden")) return;
-      e.preventDefault();
-      dragCounter = 0;
-      dropOverlay.classList.add("hidden");
-      const file = e.dataTransfer?.files?.[0];
-      if (file) await processSelectedFile(file);
-    });
-
-    // ================= MESSAGE RENDERING & CLEAN MOBILE COPY =================
-    function formatReply(text) {
-      let safe = escapeHtml(text || "");
-
-      const codeBlocks = [];
-      safe = safe.replace(/```([a-zA-Z0-9_+-]*)\s*\n([\s\S]*?)```/g, (_, lang, code) => {
-        const idx = codeBlocks.length;
-        const label = lang ? lang : "code";
-        codeBlocks.push(`
-          <div class="code-wrapper">
-            <div class="code-header">
-              <span>${label}</span>
-              <button class="copy-code-btn" type="button" onclick="copyCodeBlock(this)">Copy</button>
-            </div>
-            <pre><code>${code.trim()}</code></pre>
-          </div>
-        `);
-        return `\n\n__CODE_BLOCK_${idx}__\n\n`;
+        item.appendChild(meta);
+        item.appendChild(delBtn);
+        listEl.appendChild(item);
       });
-
-      safe = safe
-        .replace(/^###\s+(.+)$/gm, "\n\n<h3>$1</h3>\n\n")
-        .replace(/^##\s+(.+)$/gm, "\n\n<h3>$1</h3>\n\n")
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/(^|[\s(])\*([^*\s][^*\n]*?)\*(?=[\s.,;:!?)]|$)/g, "$1<em>$2</em>")
-        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-        .replace(/^\s*[\*\-]\s+(.+)$/gm, "• $1");
-
-      // Wrap paragraphs in <p> blocks so mobile selection handles snap cleanly
-      safe = safe
-        .split(/\n{2,}/)
-        .map((chunk) => chunk.trim())
-        .filter(Boolean)
-        .map((chunk) => {
-          if (/^(__CODE_BLOCK_\d+__|<h3>[\s\S]*<\/h3>)$/.test(chunk)) return chunk;
-          return `<p>${chunk.replace(/\n/g, "<br>")}</p>`;
-        })
-        .join("");
-
-      codeBlocks.forEach((block, idx) => {
-        safe = safe.replace(`__CODE_BLOCK_${idx}__`, block);
-      });
-
-      return safe;
     }
 
-    function copyTextCleanly(text, btn, defaultLabel = "Copy") {
-      const done = () => {
-        if (!btn) return;
-        btn.textContent = "Copied";
-        setTimeout(() => (btn.textContent = defaultLabel), 1500);
-      };
-
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
-      } else {
-        fallbackCopy(text, done);
-      }
-    }
-
-    function fallbackCopy(text, callback) {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      try {
-        document.execCommand("copy");
-      } catch (e) {}
-      document.body.removeChild(ta);
-      if (callback) callback();
-    }
-
-    window.copyCodeBlock = function (btn) {
-      const codeEl = btn.closest(".code-wrapper").querySelector("code");
-      if (!codeEl) return;
-      copyTextCleanly(codeEl.textContent, btn, "Copy");
-    };
-
-    window.copyFullMessage = function (btn) {
-      const contentEl = btn.closest(".ai-body").querySelector(".ai-content");
-      if (!contentEl) return;
-      const clone = contentEl.cloneNode(true);
-      clone.querySelectorAll(".code-header, .media-actions").forEach((el) => el.remove());
-      copyTextCleanly(clone.innerText.trim(), btn, "Copy");
-    };
-
-    window.saveReplyToNotes = function (btn) {
-      const contentEl = btn.closest(".ai-body").querySelector(".ai-content");
-      if (!contentEl) return;
-      const clone = contentEl.cloneNode(true);
-      clone.querySelectorAll(".code-header, .media-actions").forEach((el) => el.remove());
-      const text = clone.innerText.trim();
-      const firstLine = text.split("\n")[0].slice(0, 48) || "J.A.R.V.I.S. Note";
-      workspace.notes.unshift({
-        id: Date.now().toString(),
-        title: firstLine,
-        tag: "J.A.R.V.I.S.",
-        content: text,
-        updatedAt: new Date().toLocaleDateString(),
-      });
-      scheduleCloudWorkspaceSync();
-      btn.textContent = "Saved";
-      setTimeout(() => (btn.textContent = "Save to Notes"), 1600);
-      openCommandHubTab("notes");
-    };
-
-    function appendUserMessage(text, attachmentObj, shouldScroll = true) {
-      welcomeView.classList.add("hidden");
-      const row = document.createElement("div");
-      row.className = "msg-row user";
-
-      if (attachmentObj) {
-        const tag = document.createElement("div");
-        tag.className = "user-attachment-tag";
-        if (attachmentObj.previewUrl) {
-          const img = document.createElement("img");
-          img.src = attachmentObj.previewUrl;
-          tag.appendChild(img);
-        } else {
-          tag.textContent = attachmentObj.badgeText || `Attached: ${attachmentObj.name}`;
-        }
-        row.appendChild(tag);
-      }
-
-      if (text) {
-        const bubble = document.createElement("div");
-        bubble.className = "user-bubble";
-        bubble.textContent = text;
-        row.appendChild(bubble);
-      }
-
-      chatContainer.appendChild(row);
-      if (shouldScroll) scrollToBottom();
-    }
-
-    function appendThinkingIndicator() {
+    function buildAiMessageElement(msg) {
       const row = document.createElement("div");
       row.className = "msg-row ai";
-      row.innerHTML = `
-        <div class="ai-avatar">${BRAND_ICON}</div>
-        <div class="thinking-wrap"><span></span><span></span><span></span></div>
-      `;
-      chatContainer.appendChild(row);
-      scrollToBottom();
+
+      const head = document.createElement("div");
+      head.className = "ai-msg-head";
+      head.innerHTML =
+        `<div class="ai-avatar">` +
+          `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">` +
+            `<polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>` +
+          `</svg>` +
+        `</div>` +
+        `<span>J.A.R.V.I.S.</span>`;
+
+      const content = document.createElement("div");
+      content.className = "ai-content";
+
+      if (msg.pending) {
+        content.innerHTML = `<div class="thinking-wrap"><span></span><span></span><span></span></div>`;
+        row.appendChild(head);
+        row.appendChild(content);
+        return row;
+      }
+
+      const { html, codeBlocks } = renderMarkdown(msg.text || "");
+      content.innerHTML = html;
+
+      content.querySelectorAll(".code-wrapper").forEach((wrap) => {
+        const idx = Number(wrap.dataset.codeIdx);
+        const btn = wrap.querySelector(".copy-code-btn");
+        if (btn && codeBlocks[idx]) {
+          btn.addEventListener("click", () => copyToClipboard(codeBlocks[idx].code, btn, "Copy"));
+        }
+      });
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "msg-toolbar";
+
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "msg-action-btn";
+      copyBtn.type = "button";
+      copyBtn.textContent = "Copy";
+      copyBtn.addEventListener("click", () => copyToClipboard(msg.text || "", copyBtn, "Copy"));
+
+      const selectBtn = document.createElement("button");
+      selectBtn.className = "msg-action-btn";
+      selectBtn.type = "button";
+      selectBtn.textContent = "Select text";
+      selectBtn.addEventListener("click", () => openSelectTextModal(msg.text || ""));
+
+      const noteBtn = document.createElement("button");
+      noteBtn.className = "msg-action-btn";
+      noteBtn.type = "button";
+      noteBtn.textContent = "Save to Notes";
+      noteBtn.addEventListener("click", () => {
+        const snippetTitle = (msg.text || "").split("\n")[0].replace(/[#*`]/g, "").trim().slice(0, 48) || "J.A.R.V.I.S. Note";
+        state.notes.unshift({ id: uid(), title: snippetTitle, body: msg.text || "", createdAt: Date.now() });
+        persistAll();
+        renderNotes();
+        noteBtn.textContent = "Saved";
+        setTimeout(() => { noteBtn.textContent = "Save to Notes"; }, 1500);
+      });
+
+      toolbar.appendChild(copyBtn);
+      toolbar.appendChild(selectBtn);
+      toolbar.appendChild(noteBtn);
+
+      row.appendChild(head);
+      row.appendChild(content);
+      row.appendChild(toolbar);
       return row;
     }
 
-    function appendAIMessage(data, shouldScroll = true) {
-      const row = document.createElement("div");
-      row.className = "msg-row ai";
+    function renderActiveChat() {
+      const conv = getActiveConversation();
+      const welcome = $("welcome-view");
+      const container = $("messages-container");
 
-      let mediaHtml = "";
-      if (data.generatedImage) {
-        mediaHtml = `
-          <div class="media-card">
-            <img src="${data.generatedImage}" alt="Generated illustration" />
-            <div class="media-actions">
-              <a class="download-media-btn" href="${data.generatedImage}" download="jarvis-illustration.png">Download Image</a>
-            </div>
-          </div>
-        `;
-      } else if (data.generatedSvg) {
-        const svgBlobUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(data.generatedSvg);
-        mediaHtml = `
-          <div class="media-card">
-            ${data.generatedSvg}
-            <div class="media-actions">
-              <a class="download-media-btn" href="${svgBlobUrl}" download="jarvis-diagram.svg">Download SVG</a>
-            </div>
-          </div>
-        `;
+      if (!conv || !conv.messages.length) {
+        welcome.classList.remove("hidden");
+        container.classList.add("hidden");
+        container.innerHTML = "";
+        return;
       }
 
-      row.innerHTML = `
-        <div class="ai-avatar">${BRAND_ICON}</div>
-        <div class="ai-body">
-          <div class="ai-content">
-            ${formatReply(data.reply)}
-            ${mediaHtml}
-          </div>
-          <div class="msg-toolbar">
-            <button class="msg-action-btn" type="button" onclick="copyFullMessage(this)">Copy</button>
-            <button class="msg-action-btn" type="button" onclick="saveReplyToNotes(this)">Save to Notes</button>
-          </div>
-        </div>
-      `;
-      chatContainer.appendChild(row);
-      if (shouldScroll) scrollToBottom();
+      welcome.classList.add("hidden");
+      container.classList.remove("hidden");
+      container.innerHTML = "";
+
+      conv.messages.forEach((msg) => {
+        if (msg.role === "user") {
+          const row = document.createElement("div");
+          row.className = "msg-row user";
+
+          if (msg.attachment) {
+            const tag = document.createElement("div");
+            tag.className = "user-attachment-tag";
+            if (msg.attachment.dataUrl && msg.attachment.type.startsWith("image/")) {
+              const img = document.createElement("img");
+              img.src = msg.attachment.dataUrl;
+              img.alt = msg.attachment.name;
+              tag.appendChild(img);
+            } else {
+              tag.textContent = `Attached: ${msg.attachment.name}`;
+            }
+            row.appendChild(tag);
+          }
+
+          if (msg.text) {
+            const bubble = document.createElement("div");
+            bubble.className = "user-bubble";
+            bubble.textContent = msg.text;
+            row.appendChild(bubble);
+          }
+
+          container.appendChild(row);
+        } else {
+          container.appendChild(buildAiMessageElement(msg));
+        }
+      });
+
+      const scrollEl = $("chat-scroll");
+      scrollEl.scrollTop = scrollEl.scrollHeight;
     }
 
-    async function fetchWorkerWithRetry(payload, retries = 1) {
-      for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-          const res = await fetch(WORKER_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
+    /* ================= FILE & DOCUMENT PARSING ================= */
+    async function extractFilePayload(file) {
+      const name = file.name;
+      const type = file.type || "";
+
+      if (type.startsWith("image/")) {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        return { name, type, dataUrl, extractedText: "" };
+      }
+
+      if (name.toLowerCase().endsWith(".pptx") && window.JSZip) {
+        const buf = await file.arrayBuffer();
+        const zip = await window.JSZip.loadAsync(buf);
+        const slideFiles = Object.keys(zip.files)
+          .filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f))
+          .sort((a, b) => {
+            const na = parseInt(a.match(/\d+/)[0], 10);
+            const nb = parseInt(b.match(/\d+/)[0], 10);
+            return na - nb;
           });
-          if (res.status >= 500 && attempt < retries) continue;
-          return res;
+        const slides = [];
+        for (const sf of slideFiles) {
+          const xml = await zip.files[sf].async("string");
+          const plain = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+          if (plain) slides.push(`[Slide ${slides.length + 1}] ${plain}`);
+        }
+        return { name, type: "application/pptx", extractedText: slides.join("\n").slice(0, 24000) };
+      }
+
+      if (name.toLowerCase().endsWith(".pdf") && window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        const buf = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+        const maxPages = Math.min(pdf.numPages, 25);
+        const pages = [];
+        for (let p = 1; p <= maxPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          const line = content.items.map((it) => it.str).join(" ");
+          if (line.trim()) pages.push(`[Page ${p}] ${line.trim()}`);
+        }
+        return { name, type: "application/pdf", extractedText: pages.join("\n").slice(0, 24000) };
+      }
+
+      const text = await file.text();
+      return { name, type: type || "text/plain", extractedText: text.slice(0, 24000) };
+    }
+
+    function setPendingAttachment(att) {
+      state.pendingAttachment = att;
+      const preview = $("attachment-preview");
+      const thumb = $("preview-thumb");
+      if (!att) {
+        preview.classList.add("hidden");
+        thumb.classList.add("hidden");
+        thumb.src = "";
+        updateSendButtonState();
+        return;
+      }
+      $("preview-name").textContent = att.name;
+      if (att.dataUrl) {
+        thumb.src = att.dataUrl;
+        thumb.classList.remove("hidden");
+      } else {
+        thumb.classList.add("hidden");
+      }
+      preview.classList.remove("hidden");
+      updateSendButtonState();
+    }
+
+    async function handleIncomingFile(file) {
+      if (!file) return;
+      try {
+        const payload = await extractFilePayload(file);
+        setPendingAttachment(payload);
+      } catch (err) {
+        alert("Could not read file: " + (err.message || err));
+      }
+    }
+
+    /* ================= BACKEND API & ROBUST RESPONSE PARSING ================= */
+    function extractReplyText(data) {
+      if (!data) return "";
+      if (typeof data === "string") return data.trim();
+      const direct =
+        data.reply ??
+        data.response ??
+        data.text ??
+        data.answer ??
+        data.output ??
+        data.content ??
+        data.message;
+      if (typeof direct === "string" && direct.trim()) return direct.trim();
+      if (Array.isArray(data.choices) && data.choices[0]?.message?.content) {
+        return String(data.choices[0].message.content).trim();
+      }
+      if (Array.isArray(data.candidates) && data.candidates[0]?.content?.parts) {
+        return data.candidates[0].content.parts
+          .map((p) => p.text || "")
+          .join("")
+          .trim();
+      }
+      return "";
+    }
+
+    function buildVaultContext(prompt) {
+      if (!state.vault.length) return "";
+      const terms = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+      const scored = state.vault.map((doc) => {
+        const hay = (doc.name + " " + doc.content).toLowerCase();
+        let score = 0;
+        terms.forEach((t) => {
+          if (hay.includes(t)) score += 1;
+        });
+        return { doc, score };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      const top = scored.slice(0, 2).map((s) => `[Vault: ${s.doc.name}]\n${s.doc.content.slice(0, 4000)}`);
+      return top.join("\n\n");
+    }
+
+    async function queryBackendWithRetry(payload) {
+      const base = state.apiUrl.replace(/\/+$/, "");
+      if (!base) {
+        throw new Error("No Backend Server URL configured. Open the sidebar gear icon to set your API URL.");
+      }
+
+      const headers = { "Content-Type": "application/json" };
+      if (state.token) headers["Authorization"] = `Bearer ${state.token}`;
+
+      let lastError = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch(`${base}/api/chat`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload)
+          });
+
+          const rawBody = await res.text();
+          let parsed = null;
+          try {
+            parsed = JSON.parse(rawBody);
+          } catch {
+            parsed = rawBody;
+          }
+
+          if (!res.ok) {
+            const errMsg = (parsed && parsed.error) || `HTTP ${res.status}`;
+            throw new Error(errMsg);
+          }
+
+          const replyText = extractReplyText(parsed);
+          if (replyText) return replyText;
+          lastError = new Error("Empty response payload from model");
         } catch (err) {
-          if (attempt >= retries) throw err;
-          await new Promise((r) => setTimeout(r, 900));
+          lastError = err;
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 700));
+          }
         }
       }
+      throw lastError || new Error("Request failed");
     }
 
-    async function sendPrompt(text, priorityVaultId = null) {
-      const cleanText = text.trim();
-      if ((!cleanText && !pendingAttachment) || isSending || isProcessingFile || !activePasscode) return;
+    async function sendMessage(overrideText = null) {
+      if (state.isSending) return;
+      const inputEl = $("prompt-input");
+      const text = (overrideText !== null ? overrideText : inputEl.value).trim();
+      const attachment = state.pendingAttachment;
 
-      isSending = true;
-      sendBtn.disabled = true;
+      if (!text && !attachment) return;
 
-      if (!activeConvId) {
-        activeConvId = Date.now().toString();
-        const autoTitle = (cleanText || pendingAttachment?.name || "New Session").slice(0, 42);
-        activeThreadLabel.textContent = autoTitle;
-        workspace.conversations.unshift({
-          id: activeConvId,
-          title: autoTitle,
-          updatedAt: new Date().toLocaleDateString(),
-          messages: [],
-        });
+      let conv = getActiveConversation();
+      if (!conv) {
+        conv = createNewConversation(text.slice(0, 42) || attachment.name);
+      } else if (!conv.messages.length) {
+        conv.title = text.slice(0, 42) || attachment.name;
       }
 
-      const conv = getActiveConversation();
-      const historyForApi = (conv?.messages || []).slice(-16).map((m) => ({
-        role: m.role,
-        parts: [{ text: m.text }],
-      }));
+      conv.messages.push({
+        id: uid(),
+        role: "user",
+        text,
+        attachment: attachment
+          ? { name: attachment.name, type: attachment.type, dataUrl: attachment.dataUrl || "" }
+          : null
+      });
 
-      const currentAttachment = pendingAttachment;
-      appendUserMessage(cleanText, currentAttachment, true);
-      promptInput.value = "";
-      promptInput.style.height = "auto";
-      clearAttachment();
+      const pendingMsg = { id: uid(), role: "ai", text: "", pending: true };
+      conv.messages.push(pendingMsg);
+      conv.updatedAt = Date.now();
 
-      const loader = appendThinkingIndicator();
-      const vaultContext = await queryResourceVault(cleanText, priorityVaultId);
+      if (overrideText === null) {
+        inputEl.value = "";
+        autoResizeInput();
+      }
+      setPendingAttachment(null);
+      state.isSending = true;
+      updateSendButtonState();
+      persistAll();
+      renderConversationList();
+      renderActiveChat();
 
-      const payloadAttachment = currentAttachment
-        ? {
-            type: currentAttachment.type,
-            mimeType: currentAttachment.mimeType,
-            data: currentAttachment.data,
-            fileUri: currentAttachment.fileUri,
-            content: currentAttachment.content,
-            name: currentAttachment.name,
-            slideCount: currentAttachment.slideCount,
-            slidesText: currentAttachment.slidesText,
-            slideImages: currentAttachment.slideImages,
-          }
-        : null;
+      const history = conv.messages
+        .filter((m) => !m.pending && m.text)
+        .slice(-12)
+        .map((m) => ({ role: m.role === "ai" ? "assistant" : "user", content: m.text }));
+
+      const vaultContext = buildVaultContext(text);
+      const workspaceSummary = [
+        state.schedule.length ? `Schedule: ${state.schedule.map((s) => `${s.title} (${s.time})`).join("; ")}` : "",
+        state.todos.filter((t) => !t.done).length
+          ? `Open Tasks: ${state.todos.filter((t) => !t.done).map((t) => t.text).join("; ")}`
+          : ""
+      ]
+        .filter(Boolean)
+        .join("\n");
 
       try {
-        const res = await fetchWorkerWithRetry({
-          message: cleanText,
-          passcode: activePasscode,
-          history: historyForApi,
-          attachment: payloadAttachment,
+        const reply = await queryBackendWithRetry({
+          message: text,
+          prompt: text,
+          history,
+          attachment: attachment
+            ? {
+                name: attachment.name,
+                type: attachment.type,
+                dataUrl: attachment.dataUrl || "",
+                extractedText: attachment.extractedText || ""
+              }
+            : null,
           vaultContext,
-          workspaceSnapshot: {
-            schedule: workspace.schedule,
-            todos: workspace.todos,
-            notes: (workspace.notes || []).map((n) => ({ title: n.title, tag: n.tag })),
-            vaultCatalog: workspace.vaultCatalog,
-          },
+          workspaceSummary
         });
-
-        if (res.status === 401) {
-          loader.remove();
-          logoutUser("Session expired. Please sign in again.");
-          return;
-        }
-
-        const data = await res.json();
-        loader.remove();
-        appendAIMessage(data, true);
-
-        if (res.ok && conv) {
-          const userMsgText = currentAttachment
-            ? `${cleanText || "Analyze attached file"} [${currentAttachment.badgeText || currentAttachment.name}]`
-            : cleanText;
-
-          conv.messages.push({
-            role: "user",
-            text: userMsgText,
-            attachmentBadge: currentAttachment?.badgeText || null,
-          });
-          conv.messages.push({
-            role: "model",
-            text: data.reply,
-          });
-          conv.updatedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-          workspace.conversations = [
-            conv,
-            ...workspace.conversations.filter((c) => c.id !== conv.id),
-          ];
-
-          if (data.updatedWorkspace) {
-            if (Array.isArray(data.updatedWorkspace.schedule)) workspace.schedule = data.updatedWorkspace.schedule;
-            if (Array.isArray(data.updatedWorkspace.todos)) workspace.todos = data.updatedWorkspace.todos;
-            if (Array.isArray(data.updatedWorkspace.notes)) workspace.notes = data.updatedWorkspace.notes;
-          }
-
-          scheduleCloudWorkspaceSync();
-        }
+        pendingMsg.pending = false;
+        pendingMsg.text = reply;
       } catch (err) {
-        loader.remove();
-        appendAIMessage({
-          reply: `Request interrupted (${err.message || "network timeout"}). Please resend your prompt, sir.`,
-        });
+        pendingMsg.pending = false;
+        pendingMsg.text = `Connection notice: ${err.message}`;
       } finally {
-        isSending = false;
-        sendBtn.disabled = false;
-        if (window.innerWidth > 600) promptInput.focus();
+        state.isSending = false;
+        updateSendButtonState();
+        persistAll();
+        renderActiveChat();
       }
     }
 
-    chatForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      sendPrompt(promptInput.value);
-    });
+    /* ================= WORKSPACE INSPECTOR RENDERERS ================= */
+    function updateCounts() {
+      const s = state.schedule.length;
+      const tOpen = state.todos.filter((t) => !t.done).length;
+      const n = state.notes.length;
+      const v = state.vault.length;
+      $("nav-sched-count").textContent = s;
+      $("nav-todo-count").textContent = tOpen;
+      $("nav-notes-count").textContent = n;
+      $("nav-vault-count").textContent = v;
+      $("hub-total-count").textContent = s + tOpen + n + v;
+    }
 
-    promptInput.addEventListener("input", () => {
-      promptInput.style.height = "auto";
-      promptInput.style.height = Math.min(promptInput.scrollHeight, 150) + "px";
-    });
-
-    promptInput.addEventListener("keydown", (e) => {
-      const isMobile = window.innerWidth <= 600;
-      if (e.key === "Enter" && !e.shiftKey && !isMobile) {
-        e.preventDefault();
-        sendPrompt(promptInput.value);
+    function renderSchedule() {
+      const list = $("sched-list");
+      list.innerHTML = "";
+      if (!state.schedule.length) {
+        list.innerHTML = `<div class="empty-hint">No classes or deadlines added yet.</div>`;
+        return;
       }
-    });
+      state.schedule.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "hub-card";
+        card.innerHTML =
+          `<div class="hub-card-top">` +
+            `<div class="hub-card-title">${escapeHtml(item.title)}</div>` +
+            `<span class="badge ${item.tag === "Exam" ? "danger" : item.tag === "Deadline" ? "amber" : ""}">${escapeHtml(item.tag)}</span>` +
+          `</div>` +
+          `<div class="kv-row"><span>${escapeHtml(item.time)}</span><button class="mini-del" type="button">&times;</button></div>`;
+        card.querySelector(".mini-del").addEventListener("click", () => {
+          state.schedule = state.schedule.filter((x) => x.id !== item.id);
+          persistAll();
+          renderSchedule();
+        });
+        list.appendChild(card);
+      });
+    }
 
-    document.querySelectorAll(".starter-card").forEach((card) => {
-      card.addEventListener("click", () => {
-        sendPrompt(card.getAttribute("data-prompt"));
+    function renderTodos() {
+      const list = $("todo-list");
+      list.innerHTML = "";
+      const total = state.todos.length;
+      const done = state.todos.filter((t) => t.done).length;
+      $("todo-progress-label").textContent = `${done}/${total}`;
+      $("todo-progress-fill").style.width = total ? `${Math.round((done / total) * 100)}%` : "0%";
+
+      if (!total) {
+        list.innerHTML = `<div class="empty-hint">No action items yet.</div>`;
+        return;
+      }
+
+      state.todos.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "hub-card";
+        card.innerHTML =
+          `<div class="todo-row">` +
+            `<input class="todo-check" type="checkbox" ${item.done ? "checked" : ""} />` +
+            `<span class="todo-text ${item.done ? "done" : ""}">${escapeHtml(item.text)}</span>` +
+            `<span class="badge ${item.priority === "High" ? "amber" : ""}">${escapeHtml(item.priority)}</span>` +
+            `<button class="mini-del" type="button">&times;</button>` +
+          `</div>`;
+        card.querySelector(".todo-check").addEventListener("change", (e) => {
+          item.done = e.target.checked;
+          persistAll();
+          renderTodos();
+        });
+        card.querySelector(".mini-del").addEventListener("click", () => {
+          state.todos = state.todos.filter((x) => x.id !== item.id);
+          persistAll();
+          renderTodos();
+        });
+        list.appendChild(card);
+      });
+    }
+
+    function renderNotes() {
+      const list = $("notes-list");
+      list.innerHTML = "";
+      if (!state.notes.length) {
+        list.innerHTML = `<div class="empty-hint">Save AI replies or jot down study notes here.</div>`;
+        return;
+      }
+      state.notes.forEach((note) => {
+        const card = document.createElement("div");
+        card.className = "hub-card";
+        card.innerHTML =
+          `<div class="hub-card-top"><div class="hub-card-title">${escapeHtml(note.title)}</div></div>` +
+          `<div class="hub-card-sub">${escapeHtml(note.body)}</div>` +
+          `<div class="mini-actions">` +
+            `<button class="mini-btn copy-note-btn" type="button">Copy</button>` +
+            `<button class="mini-del" type="button">&times;</button>` +
+          `</div>`;
+        card.querySelector(".copy-note-btn").addEventListener("click", (e) => {
+          copyToClipboard(`${note.title}\n\n${note.body}`, e.target, "Copy");
+        });
+        card.querySelector(".mini-del").addEventListener("click", () => {
+          state.notes = state.notes.filter((x) => x.id !== note.id);
+          persistAll();
+          renderNotes();
+        });
+        list.appendChild(card);
+      });
+    }
+
+    function renderVault() {
+      const list = $("vault-list");
+      list.innerHTML = "";
+      if (!state.vault.length) {
+        list.innerHTML = `<div class="empty-hint">Upload PDFs or PPTX decks so J.A.R.V.I.S. can reference them in answers.</div>`;
+        return;
+      }
+      state.vault.forEach((doc) => {
+        const card = document.createElement("div");
+        card.className = "hub-card";
+        card.innerHTML =
+          `<div class="hub-card-top">` +
+            `<div class="hub-card-title">${escapeHtml(doc.name)}</div>` +
+            `<span class="badge">Indexed</span>` +
+          `</div>` +
+          `<div class="kv-row"><span>${doc.content.length.toLocaleString()} chars</span><button class="mini-del" type="button">&times;</button></div>`;
+        card.querySelector(".mini-del").addEventListener("click", () => {
+          state.vault = state.vault.filter((x) => x.id !== doc.id);
+          persistAll();
+          renderVault();
+        });
+        list.appendChild(card);
+      });
+    }
+
+    /* ================= INPUT & AUTH HANDLERS ================= */
+    function autoResizeInput() {
+      const el = $("prompt-input");
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 132) + "px";
+    }
+
+    function updateSendButtonState() {
+      const hasText = $("prompt-input").value.trim().length > 0;
+      const hasFile = Boolean(state.pendingAttachment);
+      $("send-btn").disabled = state.isSending || (!hasText && !hasFile);
+    }
+
+    function enterWorkspace() {
+      $("login-screen").classList.add("hidden");
+      $("app-screen").classList.remove("hidden");
+      if (window.innerWidth > 1024) {
+        $("left-sidebar").classList.remove("collapsed");
+      }
+      renderConversationList();
+      renderActiveChat();
+      renderSchedule();
+      renderTodos();
+      renderNotes();
+      renderVault();
+      updateCounts();
+    }
+
+    /* ================= BOOTSTRAP EVENT LISTENERS ================= */
+    document.addEventListener("DOMContentLoaded", () => {
+      loadLocalData();
+      applyTheme(state.theme);
+
+      if (state.token) {
+        enterWorkspace();
+      }
+
+      /* Login */
+      $("login-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const passcode = $("passcode-input").value.trim();
+        if (!passcode) return;
+        $("login-error").textContent = "";
+        $("login-btn").disabled = true;
+
+        try {
+          if (state.apiUrl) {
+            const base = state.apiUrl.replace(/\/+$/, "");
+            const res = await fetch(`${base}/api/login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ passcode })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(data.error || "Invalid passcode");
+            }
+            state.token = data.token || passcode;
+          } else {
+            state.token = passcode;
+          }
+          localStorage.setItem(STORAGE_KEYS.token, state.token);
+          enterWorkspace();
+        } catch (err) {
+          $("login-error").textContent = err.message || "Authentication failed";
+        } finally {
+          $("login-btn").disabled = false;
+        }
+      });
+
+      $("logout-btn").addEventListener("click", () => {
+        state.token = "";
+        localStorage.removeItem(STORAGE_KEYS.token);
+        $("app-screen").classList.add("hidden");
+        $("login-screen").classList.remove("hidden");
+        $("passcode-input").value = "";
+      });
+
+      /* Theme & Server Modals */
+      $("theme-toggle-btn").addEventListener("click", () => {
+        applyTheme(state.theme === "dark" ? "light" : "dark");
+      });
+
+      $("open-server-btn").addEventListener("click", openServerModal);
+      $("open-server-from-login").addEventListener("click", openServerModal);
+      $("server-close-btn").addEventListener("click", closeServerModal);
+      $("server-save-btn").addEventListener("click", () => {
+        state.apiUrl = $("server-url-input").value.trim();
+        localStorage.setItem(STORAGE_KEYS.apiUrl, state.apiUrl);
+        closeServerModal();
+      });
+
+      /* Select Text Sheet */
+      $("select-close-btn").addEventListener("click", closeSelectTextModal);
+      $("select-modal").addEventListener("click", (e) => {
+        if (e.target === $("select-modal")) closeSelectTextModal();
+      });
+      $("select-copy-all-btn").addEventListener("click", () => {
+        copyToClipboard($("select-sheet-body").textContent, $("select-copy-all-btn"), "Copy all");
+      });
+
+      /* Sidebars */
+      $("toggle-left-btn").addEventListener("click", () => {
+        if ($("left-sidebar").classList.contains("collapsed")) openLeftSidebar();
+        else closeLeftSidebar();
+      });
+      $("collapse-left-btn").addEventListener("click", closeLeftSidebar);
+      $("toggle-right-btn").addEventListener("click", () => {
+        if ($("right-sidebar").classList.contains("collapsed")) openRightSidebar();
+        else closeRightSidebar();
+      });
+      $("close-right-btn").addEventListener("click", closeRightSidebar);
+      $("drawer-backdrop").addEventListener("click", () => {
+        closeLeftSidebar();
+        closeRightSidebar();
+      });
+
+      /* Chats & Search */
+      $("new-chat-btn").addEventListener("click", () => {
+        createNewConversation();
+        if (window.innerWidth <= 1024) closeLeftSidebar();
+      });
+      $("conv-search").addEventListener("input", renderConversationList);
+
+      /* Welcome Chips */
+      document.querySelectorAll(".prompt-chip").forEach((chip) => {
+        chip.addEventListener("click", () => sendMessage(chip.dataset.prompt));
+      });
+
+      /* Composer */
+      const promptInput = $("prompt-input");
+      promptInput.addEventListener("input", () => {
+        autoResizeInput();
+        updateSendButtonState();
+      });
+      promptInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+      promptInput.addEventListener("paste", (e) => {
+        const items = e.clipboardData?.items || [];
+        for (const item of items) {
+          if (item.kind === "file") {
+            const file = item.getAsFile();
+            if (file) {
+              e.preventDefault();
+              handleIncomingFile(file);
+              return;
+            }
+          }
+        }
+      });
+
+      $("send-btn").addEventListener("click", () => sendMessage());
+      $("attach-btn").addEventListener("click", () => $("file-input").click());
+      $("file-input").addEventListener("change", (e) => {
+        if (e.target.files?.[0]) handleIncomingFile(e.target.files[0]);
+        e.target.value = "";
+      });
+      $("remove-attach-btn").addEventListener("click", () => setPendingAttachment(null));
+
+      /* Global Drag & Drop */
+      let dragDepth = 0;
+      window.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        dragDepth++;
+        $("drop-overlay").classList.remove("hidden");
+      });
+      window.addEventListener("dragover", (e) => e.preventDefault());
+      window.addEventListener("dragleave", () => {
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (!dragDepth) $("drop-overlay").classList.add("hidden");
+      });
+      window.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dragDepth = 0;
+        $("drop-overlay").classList.add("hidden");
+        if (e.dataTransfer?.files?.[0]) handleIncomingFile(e.dataTransfer.files[0]);
+      });
+
+      /* Workspace Inspector Tabs & Forms */
+      document.querySelectorAll(".hub-tab").forEach((tab) => {
+        tab.addEventListener("click", () => window.openCommandHubTab(tab.dataset.tab));
+      });
+
+      $("sched-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        state.schedule.unshift({
+          id: uid(),
+          title: $("sched-title").value.trim(),
+          time: $("sched-time").value.trim(),
+          tag: $("sched-tag").value
+        });
+        $("sched-title").value = "";
+        $("sched-time").value = "";
+        persistAll();
+        renderSchedule();
+      });
+
+      $("todo-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        state.todos.unshift({
+          id: uid(),
+          text: $("todo-text").value.trim(),
+          priority: $("todo-priority").value,
+          done: false
+        });
+        $("todo-text").value = "";
+        persistAll();
+        renderTodos();
+      });
+
+      $("note-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        state.notes.unshift({
+          id: uid(),
+          title: $("note-title").value.trim(),
+          body: $("note-body").value.trim(),
+          createdAt: Date.now()
+        });
+        $("note-title").value = "";
+        $("note-body").value = "";
+        persistAll();
+        renderNotes();
+      });
+
+      $("vault-drop-zone").addEventListener("click", () => $("vault-file-input").click());
+      $("vault-file-input").addEventListener("change", async (e) => {
+        const files = Array.from(e.target.files || []);
+        for (const f of files) {
+          try {
+            const parsed = await extractFilePayload(f);
+            if (parsed.extractedText) {
+              state.vault.unshift({
+                id: uid(),
+                name: parsed.name,
+                content: parsed.extractedText
+              });
+            }
+          } catch (err) {
+            alert(`Failed to index ${f.name}: ${err.message}`);
+          }
+        }
+        e.target.value = "";
+        persistAll();
+        renderVault();
       });
     });
   </script>
