@@ -98,6 +98,28 @@
 
     .hidden { display: none !important; }
 
+    /* Isolate mobile text selection strictly to message text */
+    #app-screen,
+    header,
+    #left-sidebar,
+    #right-sidebar,
+    .ai-avatar,
+    .msg-toolbar,
+    .code-header,
+    .media-actions,
+    .user-attachment-tag,
+    .input-dock,
+    button {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    input,
+    textarea {
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
     /* ================= DRAG & DROP OVERLAY ================= */
     #drop-overlay {
       position: fixed;
@@ -391,7 +413,6 @@
 
     .sidebar-search:focus { border-color: var(--blue-primary); }
 
-    /* Quick Workspace Nav Links (Orchestra-inspired) */
     .sidebar-nav {
       padding: 4px 10px 8px;
       display: flex;
@@ -507,7 +528,6 @@
     .conv-item:hover .conv-del-btn { opacity: 1; }
     .conv-del-btn:hover { color: var(--danger); }
 
-    /* Profile Footer (Orchestra-inspired) */
     .sidebar-profile {
       padding: 10px 12px;
       border-top: 1px solid var(--border-hairline);
@@ -724,7 +744,6 @@
       margin-bottom: 26px;
     }
 
-    /* Orchestra-inspired structured SaaS cards */
     .card-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -845,6 +864,10 @@
       white-space: pre-wrap;
       word-break: break-word;
       box-shadow: var(--shadow-card);
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+      contain: layout style;
     }
 
     .msg-row.ai {
@@ -876,6 +899,18 @@
       font-size: 0.93rem;
       color: var(--text-primary);
       word-break: break-word;
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+      contain: layout style;
+    }
+
+    .ai-content p {
+      margin: 0 0 10px;
+    }
+
+    .ai-content p:last-child {
+      margin-bottom: 0;
     }
 
     .ai-content h3 {
@@ -1031,7 +1066,7 @@
       40% { opacity: 1; transform: scale(1); }
     }
 
-    /* ================= OPILOT-STYLE MULTI-LINE COMPOSER ================= */
+    /* ================= MULTI-LINE COMPOSER ================= */
     .input-dock {
       padding: 8px 20px calc(14px + env(safe-area-inset-bottom));
       flex-shrink: 0;
@@ -1180,7 +1215,7 @@
       cursor: not-allowed;
     }
 
-    /* ================= RIGHT INSPECTOR PANEL (OPILOT + ORCHESTRA STYLE) ================= */
+    /* ================= RIGHT INSPECTOR PANEL ================= */
     #right-sidebar {
       width: 344px;
       background: var(--bg-sidebar);
@@ -1248,7 +1283,7 @@
     }
 
     .hub-panel::-webkit-scrollbar { width: 4px; }
-    #hub-panel::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+    .hub-panel::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
 
     .section-bar {
       display: flex;
@@ -1333,7 +1368,6 @@
       gap: 8px;
     }
 
-    /* Clean SaaS Inspector Card */
     .hub-card {
       background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
@@ -1637,7 +1671,7 @@
         </div>
       </div>
 
-      <!-- Workspace Module Shortcuts (Orchestra-style navigation) -->
+      <!-- Workspace Module Shortcuts -->
       <nav class="sidebar-nav">
         <button class="nav-link-btn" type="button" onclick="openCommandHubTab('schedule')">
           <span class="nav-link-left">
@@ -1798,7 +1832,7 @@
         </div>
       </main>
 
-      <!-- oPilot-style Multi-line Composer -->
+      <!-- Multi-line Composer -->
       <div class="input-dock">
         <form id="chat-form" class="composer-box">
           <div id="attachment-preview" class="hidden">
@@ -1998,7 +2032,7 @@
       </svg>
     `;
 
-    // ================= THEME SWITCHER (DARK STUDIO / DAYLIGHT SAAS) =================
+    // ================= THEME SWITCHER =================
     function applyTheme(theme) {
       const resolved = theme === "light" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", resolved);
@@ -3226,7 +3260,7 @@
       if (file) await processSelectedFile(file);
     });
 
-    // ================= MESSAGE RENDERING & ACTIONS =================
+    // ================= MESSAGE RENDERING & CLEAN MOBILE COPY =================
     function formatReply(text) {
       let safe = escapeHtml(text || "");
 
@@ -3243,22 +3277,27 @@
             <pre><code>${code.trim()}</code></pre>
           </div>
         `);
-        return `__CODE_BLOCK_${idx}__`;
+        return `\n\n__CODE_BLOCK_${idx}__\n\n`;
       });
 
       safe = safe
-        .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
-        .replace(/^##\s+(.+)$/gm, "<h3>$1</h3>")
+        .replace(/^###\s+(.+)$/gm, "\n\n<h3>$1</h3>\n\n")
+        .replace(/^##\s+(.+)$/gm, "\n\n<h3>$1</h3>\n\n")
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
         .replace(/(^|[\s(])\*([^*\s][^*\n]*?)\*(?=[\s.,;:!?)]|$)/g, "$1<em>$2</em>")
         .replace(/`([^`\n]+)`/g, "<code>$1</code>")
         .replace(/^\s*[\*\-]\s+(.+)$/gm, "• $1");
 
+      // Wrap paragraphs in <p> blocks so mobile selection handles snap cleanly
       safe = safe
-        .replace(/\n/g, "<br>")
-        .replace(/<\/h3><br>/g, "</h3>")
-        .replace(/<br>(__CODE_BLOCK_\d+__)/g, "$1")
-        .replace(/(__CODE_BLOCK_\d+__)<br>/g, "$1");
+        .split(/\n{2,}/)
+        .map((chunk) => chunk.trim())
+        .filter(Boolean)
+        .map((chunk) => {
+          if (/^(__CODE_BLOCK_\d+__|<h3>[\s\S]*<\/h3>)$/.test(chunk)) return chunk;
+          return `<p>${chunk.replace(/\n/g, "<br>")}</p>`;
+        })
+        .join("");
 
       codeBlocks.forEach((block, idx) => {
         safe = safe.replace(`__CODE_BLOCK_${idx}__`, block);
@@ -3267,28 +3306,55 @@
       return safe;
     }
 
+    function copyTextCleanly(text, btn, defaultLabel = "Copy") {
+      const done = () => {
+        if (!btn) return;
+        btn.textContent = "Copied";
+        setTimeout(() => (btn.textContent = defaultLabel), 1500);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+      } else {
+        fallbackCopy(text, done);
+      }
+    }
+
+    function fallbackCopy(text, callback) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch (e) {}
+      document.body.removeChild(ta);
+      if (callback) callback();
+    }
+
     window.copyCodeBlock = function (btn) {
       const codeEl = btn.closest(".code-wrapper").querySelector("code");
       if (!codeEl) return;
-      navigator.clipboard.writeText(codeEl.innerText).then(() => {
-        btn.textContent = "Copied";
-        setTimeout(() => (btn.textContent = "Copy"), 1500);
-      });
+      copyTextCleanly(codeEl.textContent, btn, "Copy");
     };
 
     window.copyFullMessage = function (btn) {
       const contentEl = btn.closest(".ai-body").querySelector(".ai-content");
       if (!contentEl) return;
-      navigator.clipboard.writeText(contentEl.innerText).then(() => {
-        btn.textContent = "Copied";
-        setTimeout(() => (btn.textContent = "Copy"), 1500);
-      });
+      const clone = contentEl.cloneNode(true);
+      clone.querySelectorAll(".code-header, .media-actions").forEach((el) => el.remove());
+      copyTextCleanly(clone.innerText.trim(), btn, "Copy");
     };
 
     window.saveReplyToNotes = function (btn) {
       const contentEl = btn.closest(".ai-body").querySelector(".ai-content");
       if (!contentEl) return;
-      const text = contentEl.innerText.trim();
+      const clone = contentEl.cloneNode(true);
+      clone.querySelectorAll(".code-header, .media-actions").forEach((el) => el.remove());
+      const text = clone.innerText.trim();
       const firstLine = text.split("\n")[0].slice(0, 48) || "J.A.R.V.I.S. Note";
       workspace.notes.unshift({
         id: Date.now().toString(),
@@ -3387,6 +3453,23 @@
       if (shouldScroll) scrollToBottom();
     }
 
+    async function fetchWorkerWithRetry(payload, retries = 1) {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const res = await fetch(WORKER_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.status >= 500 && attempt < retries) continue;
+          return res;
+        } catch (err) {
+          if (attempt >= retries) throw err;
+          await new Promise((r) => setTimeout(r, 900));
+        }
+      }
+    }
+
     async function sendPrompt(text, priorityVaultId = null) {
       const cleanText = text.trim();
       if ((!cleanText && !pendingAttachment) || isSending || isProcessingFile || !activePasscode) return;
@@ -3436,22 +3519,18 @@
         : null;
 
       try {
-        const res = await fetch(WORKER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: cleanText,
-            passcode: activePasscode,
-            history: historyForApi,
-            attachment: payloadAttachment,
-            vaultContext,
-            workspaceSnapshot: {
-              schedule: workspace.schedule,
-              todos: workspace.todos,
-              notes: (workspace.notes || []).map((n) => ({ title: n.title, tag: n.tag })),
-              vaultCatalog: workspace.vaultCatalog,
-            },
-          }),
+        const res = await fetchWorkerWithRetry({
+          message: cleanText,
+          passcode: activePasscode,
+          history: historyForApi,
+          attachment: payloadAttachment,
+          vaultContext,
+          workspaceSnapshot: {
+            schedule: workspace.schedule,
+            todos: workspace.todos,
+            notes: (workspace.notes || []).map((n) => ({ title: n.title, tag: n.tag })),
+            vaultCatalog: workspace.vaultCatalog,
+          },
         });
 
         if (res.status === 401) {
@@ -3496,7 +3575,7 @@
       } catch (err) {
         loader.remove();
         appendAIMessage({
-          reply: "Could not reach J.A.R.V.I.S. core, sir. Please check your connection and try again.",
+          reply: `Request interrupted (${err.message || "network timeout"}). Please resend your prompt, sir.`,
         });
       } finally {
         isSending = false;
