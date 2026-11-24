@@ -3,21 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#111214" />
+  <meta name="theme-color" content="#090d16" />
   <title>J.A.R.V.I.S.</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
   <style>
     :root {
-      --bg-main: #111214;
-      --bg-surface: #1a1b1e;
-      --bg-elevated: #24262b;
-      --border-subtle: #30333a;
-      --text-primary: #eceef2;
-      --text-secondary: #9aa0a8;
-      --accent-gold: #fbbf24;
-      --accent-amber: #f59e0b;
-      --accent-glow: rgba(251, 191, 36, 0.16);
+      --bg-void: #080b12;
+      --bg-surface: #0f1522;
+      --bg-elevated: #161f33;
+      --bg-glass: rgba(15, 21, 34, 0.85);
+      --border-blue: rgba(56, 189, 248, 0.18);
+      --border-gold: rgba(251, 191, 36, 0.28);
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --blue-bright: #38bdf8;
+      --blue-core: #2563eb;
+      --gold-bright: #fbbf24;
+      --gold-core: #f59e0b;
       --danger: #f87171;
+      --success: #34d399;
       --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -29,8 +35,8 @@
     }
 
     html, body {
-      font-family: "Google Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
-      background: var(--bg-main);
+      font-family: "Google Sans", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg-void);
       color: var(--text-primary);
       height: 100dvh;
       width: 100%;
@@ -54,31 +60,32 @@
     #drop-overlay {
       position: fixed;
       inset: 12px;
-      z-index: 100;
-      background: rgba(17, 18, 20, 0.9);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 2px dashed var(--accent-gold);
+      z-index: 200;
+      background: rgba(8, 11, 18, 0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 2px dashed var(--blue-bright);
+      box-shadow: inset 0 0 40px rgba(56, 189, 248, 0.15);
       border-radius: 24px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      color: var(--accent-gold);
+      color: var(--gold-bright);
       pointer-events: none;
       animation: screenFadeIn 0.16s ease forwards;
     }
 
     #drop-overlay p {
-      font-size: 1.05rem;
-      font-weight: 500;
+      font-size: 1.08rem;
+      font-weight: 600;
       color: var(--text-primary);
     }
 
     #drop-overlay span {
       font-size: 0.84rem;
-      color: var(--text-secondary);
+      color: var(--blue-bright);
     }
 
     /* ================= LOGIN SCREEN ================= */
@@ -88,7 +95,10 @@
       align-items: center;
       justify-content: center;
       padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
-      background: radial-gradient(circle at top, #261f12 0%, var(--bg-main) 65%);
+      background:
+        radial-gradient(circle at 22% 18%, rgba(37, 99, 235, 0.22) 0%, transparent 45%),
+        radial-gradient(circle at 78% 82%, rgba(245, 158, 11, 0.16) 0%, transparent 48%),
+        var(--bg-void);
       animation: screenFadeIn 0.32s var(--ease-spring) forwards;
     }
 
@@ -96,38 +106,41 @@
       width: 100%;
       max-width: 400px;
       background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 26px;
+      border: 1px solid var(--border-blue);
+      border-radius: 28px;
       padding: 36px 28px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 32px rgba(56, 189, 248, 0.08);
       text-align: center;
       animation: slideUpFade 0.4s var(--ease-spring) forwards;
     }
 
     .brand-orb {
-      width: 54px;
-      height: 54px;
+      width: 58px;
+      height: 58px;
       margin: 0 auto 16px;
-      border-radius: 18px;
-      background: linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(245, 158, 11, 0.08));
-      border: 1px solid rgba(251, 191, 36, 0.4);
-      box-shadow: 0 0 24px rgba(251, 191, 36, 0.15);
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(251, 191, 36, 0.22));
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      box-shadow: 0 0 28px rgba(56, 189, 248, 0.22);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--accent-gold);
+      color: var(--gold-bright);
     }
 
     .login-card h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      background: linear-gradient(90deg, var(--blue-bright), var(--gold-bright));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
       margin-bottom: 6px;
     }
 
     .login-card p {
       color: var(--text-secondary);
-      font-size: 0.92rem;
+      font-size: 0.9rem;
       margin-bottom: 24px;
     }
 
@@ -142,7 +155,7 @@
       padding: 14px 16px;
       border-radius: 14px;
       border: 1px solid var(--border-subtle);
-      background: var(--bg-main);
+      background: var(--bg-void);
       color: var(--text-primary);
       font-size: 16px;
       outline: none;
@@ -150,8 +163,8 @@
     }
 
     .login-input:focus {
-      border-color: var(--accent-gold);
-      box-shadow: 0 0 0 3px var(--accent-glow);
+      border-color: var(--blue-bright);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
     }
 
     .login-btn {
@@ -160,15 +173,15 @@
       padding: 14px;
       border-radius: 999px;
       border: none;
-      background: linear-gradient(135deg, var(--accent-amber), var(--accent-gold));
-      color: #141004;
+      background: linear-gradient(135deg, var(--blue-core) 0%, var(--blue-bright) 50%, var(--gold-bright) 100%);
+      color: #060911;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: opacity 0.2s ease, transform 0.16s var(--ease-spring);
     }
 
-    .login-btn:hover { opacity: 0.92; }
+    .login-btn:hover { opacity: 0.94; }
     .login-btn:active { transform: scale(0.97); }
     .login-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -179,24 +192,210 @@
       margin-top: 2px;
     }
 
-    /* ================= MAIN CHAT APP ================= */
+    /* ================= 3-PANE WORKSPACE SHELL ================= */
     #app-screen {
       height: 100dvh;
       display: flex;
+      width: 100%;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(37, 99, 235, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 85% 100%, rgba(245, 158, 11, 0.08) 0%, transparent 45%),
+        var(--bg-void);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drawer-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 7, 13, 0.72);
+      backdrop-filter: blur(4px);
+      z-index: 40;
+    }
+
+    .drawer-backdrop.active { display: block; }
+
+    /* ================= LEFT SIDEBAR: CONVERSATIONS ================= */
+    #left-sidebar {
+      width: 268px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-blue);
+      display: flex;
       flex-direction: column;
-      animation: screenFadeIn 0.32s var(--ease-spring) forwards;
+      flex-shrink: 0;
+      transition: width 0.25s var(--ease-spring), transform 0.25s var(--ease-spring);
+      z-index: 50;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    #left-sidebar.collapsed {
+      width: 0;
+      overflow: hidden;
+      border-right: none;
+    }
+
+    .sidebar-top {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .new-chat-hero-btn {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(251, 191, 36, 0.35);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.24), rgba(251, 191, 36, 0.16));
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.15s var(--ease-spring), border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .new-chat-hero-btn:hover {
+      border-color: var(--gold-bright);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.16);
+    }
+
+    .new-chat-hero-btn:active { transform: scale(0.97); }
+
+    .sidebar-search {
+      width: 100%;
+      background: var(--bg-void);
+      border: 1px solid var(--border-subtle);
+      border-radius: 11px;
+      padding: 8px 11px;
+      color: var(--text-primary);
+      font-size: 0.84rem;
+      outline: none;
+    }
+
+    .sidebar-search:focus { border-color: var(--blue-bright); }
+
+    .sidebar-section-label {
+      padding: 12px 16px 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--blue-bright);
+    }
+
+    #conversation-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #conversation-list::-webkit-scrollbar { width: 4px; }
+    #conversation-list::-webkit-scrollbar-thumb { background: #263248; border-radius: 999px; }
+
+    .conv-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .conv-item:hover { background: var(--bg-elevated); }
+
+    .conv-item.active {
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.14), rgba(251, 191, 36, 0.1));
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    .conv-meta {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .conv-title {
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .conv-item.active .conv-title { color: var(--gold-bright); }
+
+    .conv-date {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .conv-del-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1rem;
+      padding: 2px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      opacity: 0.6;
+    }
+
+    .conv-del-btn:hover {
+      color: var(--danger);
+      opacity: 1;
+      background: rgba(248, 113, 113, 0.12);
+    }
+
+    .sidebar-footer {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+    }
+
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--blue-bright);
+    }
+
+    /* ================= CENTER MAIN CHAT PANE ================= */
+    .center-pane {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
     }
 
     header {
       min-height: calc(58px + env(safe-area-inset-top));
-      padding: env(safe-area-inset-top) 18px 0;
+      padding: env(safe-area-inset-top) 16px 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid rgba(251, 191, 36, 0.1);
-      background: rgba(17, 18, 20, 0.92);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-blue);
+      background: var(--bg-glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
       flex-shrink: 0;
       z-index: 10;
     }
@@ -204,29 +403,55 @@
     .header-left {
       display: flex;
       align-items: center;
-      gap: 9px;
+      gap: 10px;
     }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
+    .nav-toggle-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-elevated);
+      color: var(--blue-bright);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.18s ease, transform 0.14s var(--ease-spring);
+    }
+
+    .nav-toggle-btn:hover { border-color: var(--blue-bright); }
+    .nav-toggle-btn:active { transform: scale(0.94); }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .arc-dot {
+      width: 9px;
+      height: 9px;
       border-radius: 50%;
-      background: var(--accent-gold);
-      box-shadow: 0 0 8px var(--accent-gold);
+      background: radial-gradient(circle, var(--gold-bright), var(--blue-bright));
+      box-shadow: 0 0 10px var(--blue-bright);
     }
 
     .header-title {
-      font-size: 1.06rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
+      font-size: 1.08rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      background: linear-gradient(90deg, var(--blue-bright) 20%, var(--gold-bright) 90%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
     .model-pill {
       font-size: 0.72rem;
-      font-weight: 500;
-      color: var(--accent-gold);
-      background: rgba(251, 191, 36, 0.12);
-      border: 1px solid rgba(251, 191, 36, 0.28);
+      font-weight: 600;
+      color: var(--gold-bright);
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.32);
       padding: 3px 9px;
       border-radius: 999px;
     }
@@ -237,25 +462,45 @@
       gap: 8px;
     }
 
+    .hub-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(251, 191, 36, 0.16));
+      border: 1px solid rgba(56, 189, 248, 0.36);
+      color: var(--text-primary);
+      min-height: 36px;
+      padding: 6px 13px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.18s ease, transform 0.14s var(--ease-spring);
+    }
+
+    .hub-toggle-btn:hover { border-color: var(--gold-bright); }
+    .hub-toggle-btn:active { transform: scale(0.95); }
+
+    .hub-badge {
+      background: var(--gold-bright);
+      color: #090d16;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 999px;
+    }
+
     .icon-btn {
       background: transparent;
       border: 1px solid var(--border-subtle);
       color: var(--text-secondary);
       min-height: 36px;
-      padding: 6px 13px;
+      padding: 6px 12px;
       border-radius: 999px;
       font-size: 0.82rem;
       cursor: pointer;
-      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.14s var(--ease-spring);
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
     }
-
-    .icon-btn:hover {
-      background: var(--bg-surface);
-      border-color: rgba(251, 191, 36, 0.35);
-      color: var(--text-primary);
-    }
-
-    .icon-btn:active { transform: scale(0.95); }
 
     .icon-btn.logout:hover {
       border-color: rgba(248, 113, 113, 0.5);
@@ -272,32 +517,27 @@
     }
 
     #chat-scroll::-webkit-scrollbar { width: 5px; }
-    #chat-scroll::-webkit-scrollbar-thumb {
-      background: #2f3134;
-      border-radius: 999px;
-    }
+    #chat-scroll::-webkit-scrollbar-thumb { background: #233047; border-radius: 999px; }
 
     .chat-container {
-      max-width: 820px;
+      max-width: 780px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
       gap: 20px;
     }
 
-    /* Welcome / Empty State */
     #welcome-view {
       margin: auto;
-      padding: 36px 4px 20px;
-      text-align: left;
+      padding: 28px 4px 16px;
       width: 100%;
     }
 
     .welcome-heading {
-      font-size: clamp(1.8rem, 6vw, 2.55rem);
-      font-weight: 600;
+      font-size: clamp(1.85rem, 5.5vw, 2.55rem);
+      font-weight: 700;
       line-height: 1.2;
-      background: linear-gradient(90deg, #fde047 0%, #fbbf24 52%, #f97316 100%);
+      background: linear-gradient(90deg, var(--blue-bright) 0%, #93c5fd 42%, var(--gold-bright) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin-bottom: 6px;
@@ -305,38 +545,48 @@
     }
 
     .welcome-sub {
-      font-size: clamp(1.15rem, 4.2vw, 1.55rem);
-      color: #6c727f;
-      font-weight: 500;
+      font-size: clamp(1.05rem, 3.8vw, 1.4rem);
+      color: var(--text-secondary);
+      font-weight: 400;
       margin-bottom: 24px;
       animation: slideUpFade 0.45s var(--ease-spring) 0.06s both;
     }
 
-    .suggestion-row {
-      display: flex;
-      flex-wrap: wrap;
+    .suggestion-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 10px;
       animation: slideUpFade 0.5s var(--ease-spring) 0.12s both;
     }
 
     .chip {
       background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
+      border: 1px solid var(--border-blue);
       color: var(--text-primary);
-      padding: 11px 16px;
+      padding: 13px 15px;
       border-radius: 16px;
-      font-size: 0.88rem;
+      font-size: 0.86rem;
       text-align: left;
       cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s var(--ease-spring);
+    }
+
+    .chip strong {
+      color: var(--gold-bright);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .chip:hover {
       background: var(--bg-elevated);
-      border-color: rgba(251, 191, 36, 0.45);
+      border-color: var(--gold-bright);
     }
 
-    .chip:active { transform: scale(0.96); }
+    .chip:active { transform: scale(0.97); }
 
     /* Message Rows */
     .msg-row {
@@ -356,11 +606,11 @@
       align-items: center;
       gap: 8px;
       background: var(--bg-surface);
-      border: 1px solid rgba(251, 191, 36, 0.25);
+      border: 1px solid var(--border-gold);
       border-radius: 14px;
       padding: 7px 12px;
       font-size: 0.82rem;
-      color: var(--accent-gold);
+      color: var(--gold-bright);
       max-width: 84%;
     }
 
@@ -372,14 +622,14 @@
     }
 
     .user-bubble {
-      background: var(--bg-elevated);
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: linear-gradient(135deg, #172540, #1c283d);
+      border: 1px solid rgba(56, 189, 248, 0.26);
       color: var(--text-primary);
       padding: 12px 17px;
       border-radius: 22px 22px 6px 22px;
       max-width: 80%;
       line-height: 1.55;
-      font-size: 0.97rem;
+      font-size: 0.96rem;
       white-space: pre-wrap;
       word-break: break-word;
     }
@@ -390,12 +640,12 @@
     }
 
     .ai-avatar {
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: rgba(251, 191, 36, 0.12);
-      border: 1px solid rgba(251, 191, 36, 0.36);
-      color: var(--accent-gold);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(251, 191, 36, 0.18));
+      border: 1px solid rgba(251, 191, 36, 0.42);
+      color: var(--gold-bright);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -408,8 +658,8 @@
     }
 
     @keyframes pulseGlow {
-      0%, 100% { transform: scale(1); opacity: 0.7; box-shadow: 0 0 0 rgba(251, 191, 36, 0); }
-      50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 12px rgba(251, 191, 36, 0.35); }
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(56, 189, 248, 0); }
+      50% { transform: scale(1.1); box-shadow: 0 0 14px rgba(56, 189, 248, 0.4); }
     }
 
     .ai-body {
@@ -419,27 +669,28 @@
 
     .ai-content {
       line-height: 1.65;
-      font-size: 0.98rem;
+      font-size: 0.97rem;
       color: var(--text-primary);
       word-break: break-word;
     }
 
     .ai-content h3 {
       margin: 14px 0 6px;
-      font-size: 1.05rem;
+      font-size: 1.04rem;
       font-weight: 600;
-      color: var(--accent-gold);
+      color: var(--blue-bright);
     }
 
     .ai-content h3:first-child { margin-top: 0; }
 
     .ai-content code {
       background: var(--bg-elevated);
+      border: 1px solid var(--border-blue);
       padding: 2px 6px;
       border-radius: 6px;
       font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
-      font-size: 0.88em;
-      color: #fde68a;
+      font-size: 0.87em;
+      color: var(--gold-bright);
     }
 
     .msg-toolbar {
@@ -449,27 +700,30 @@
       margin-top: 8px;
     }
 
-    .copy-msg-btn {
-      background: transparent;
-      border: 1px solid transparent;
+    .msg-action-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
       color: var(--text-secondary);
-      padding: 3px 9px;
+      padding: 4px 10px;
       border-radius: 8px;
       font-size: 0.75rem;
       cursor: pointer;
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
 
-    .copy-msg-btn:hover {
-      background: var(--bg-surface);
-      border-color: var(--border-subtle);
-      color: var(--accent-gold);
+    .msg-action-btn:hover {
+      border-color: var(--blue-bright);
+      color: var(--blue-bright);
     }
 
-    /* Styled Code Block with Header & Copy Button */
+    .msg-action-btn.gold:hover {
+      border-color: var(--gold-bright);
+      color: var(--gold-bright);
+    }
+
     .code-wrapper {
-      background: #0d0e10;
-      border: 1px solid var(--border-subtle);
+      background: #070a10;
+      border: 1px solid var(--border-blue);
       border-radius: 14px;
       margin: 12px 0;
       overflow: hidden;
@@ -480,10 +734,10 @@
       align-items: center;
       justify-content: space-between;
       padding: 7px 13px;
-      background: #181a1f;
-      border-bottom: 1px solid var(--border-subtle);
-      font-size: 0.76rem;
-      color: var(--accent-gold);
+      background: #0e1422;
+      border-bottom: 1px solid var(--border-blue);
+      font-size: 0.75rem;
+      color: var(--gold-bright);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
@@ -491,40 +745,37 @@
     .copy-code-btn {
       background: transparent;
       border: 1px solid var(--border-subtle);
-      color: var(--text-primary);
+      color: var(--blue-bright);
       padding: 3px 10px;
       border-radius: 8px;
       font-size: 0.74rem;
       cursor: pointer;
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
 
     .copy-code-btn:hover {
-      background: var(--bg-elevated);
-      border-color: var(--accent-gold);
-      color: var(--accent-gold);
+      border-color: var(--gold-bright);
+      color: var(--gold-bright);
     }
 
     .code-wrapper pre {
       padding: 13px;
       overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
       margin: 0;
     }
 
     .code-wrapper pre code {
       background: none;
+      border: none;
       padding: 0;
-      color: #e3e3e3;
+      color: #e2e8f0;
       font-size: 0.86em;
       line-height: 1.5;
     }
 
-    /* Generated Image / Vector Card */
     .media-card {
       margin-top: 12px;
-      background: #0d0e10;
-      border: 1px solid var(--border-subtle);
+      background: #070a10;
+      border: 1px solid var(--border-blue);
       border-radius: 16px;
       padding: 10px;
       max-width: 520px;
@@ -545,35 +796,32 @@
 
     .download-media-btn {
       background: var(--bg-elevated);
-      border: 1px solid rgba(251, 191, 36, 0.35);
-      color: var(--accent-gold);
+      border: 1px solid var(--border-gold);
+      color: var(--gold-bright);
       padding: 6px 12px;
       border-radius: 999px;
       font-size: 0.78rem;
       text-decoration: none;
-      cursor: pointer;
     }
 
-    /* Animated 3-dot Thinking Indicator */
     .thinking-wrap {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       height: 30px;
       padding: 0 4px;
     }
 
     .thinking-wrap span {
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background: var(--accent-gold);
-      opacity: 0.4;
       animation: dotWave 1.2s infinite ease-in-out;
     }
 
-    .thinking-wrap span:nth-child(2) { animation-delay: 0.16s; }
-    .thinking-wrap span:nth-child(3) { animation-delay: 0.32s; }
+    .thinking-wrap span:nth-child(1) { background: var(--blue-bright); }
+    .thinking-wrap span:nth-child(2) { background: #93c5fd; animation-delay: 0.16s; }
+    .thinking-wrap span:nth-child(3) { background: var(--gold-bright); animation-delay: 0.32s; }
 
     @keyframes dotWave {
       0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
@@ -583,34 +831,31 @@
     /* ================= BOTTOM INPUT DOCK ================= */
     .input-dock {
       padding: 8px 14px calc(12px + env(safe-area-inset-bottom));
-      background: var(--bg-main);
       flex-shrink: 0;
     }
 
     .input-shell {
-      max-width: 820px;
+      max-width: 780px;
       margin: 0 auto;
       background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
+      border: 1px solid var(--border-blue);
       border-radius: 26px;
       padding: 6px 8px;
-      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     .input-shell:focus-within {
-      background: #202226;
-      border-color: rgba(251, 191, 36, 0.5);
-      box-shadow: 0 4px 22px rgba(251, 191, 36, 0.08);
+      border-color: var(--gold-bright);
+      box-shadow: 0 4px 24px rgba(56, 189, 248, 0.12);
     }
 
-    /* Attachment Preview Bar */
     #attachment-preview {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
       background: var(--bg-elevated);
-      border: 1px solid rgba(251, 191, 36, 0.28);
+      border: 1px solid var(--border-gold);
       border-radius: 16px;
       padding: 8px 12px;
       margin: 2px 2px 6px;
@@ -629,7 +874,7 @@
       height: 40px;
       border-radius: 8px;
       object-fit: cover;
-      border: 1px solid rgba(251, 191, 36, 0.3);
+      border: 1px solid var(--border-gold);
       flex-shrink: 0;
     }
 
@@ -647,7 +892,6 @@
       font-size: 1.15rem;
       cursor: pointer;
       padding: 2px 6px;
-      line-height: 1;
     }
 
     .remove-attach-btn:hover { color: var(--danger); }
@@ -664,7 +908,7 @@
       border-radius: 50%;
       border: none;
       background: transparent;
-      color: var(--text-secondary);
+      color: var(--blue-bright);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -675,7 +919,7 @@
 
     #attach-btn:hover {
       background: var(--bg-elevated);
-      color: var(--accent-gold);
+      color: var(--gold-bright);
     }
 
     #prompt-input {
@@ -699,14 +943,14 @@
       height: 42px;
       border-radius: 50%;
       border: none;
-      background: linear-gradient(135deg, var(--accent-amber), var(--accent-gold));
-      color: #141004;
+      background: linear-gradient(135deg, var(--blue-bright), var(--gold-bright));
+      color: #060911;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       flex-shrink: 0;
-      transition: opacity 0.15s ease, transform 0.15s var(--ease-spring), background 0.2s ease;
+      transition: opacity 0.15s ease, transform 0.15s var(--ease-spring);
     }
 
     #send-btn:hover { opacity: 0.92; }
@@ -719,24 +963,348 @@
 
     .footer-hint {
       text-align: center;
-      color: #6b7075;
+      color: #64748b;
       font-size: 0.72rem;
       margin-top: 7px;
     }
 
-    /* ================= MOBILE BREAKPOINT ================= */
+    /* ================= RIGHT SIDEBAR: COMMAND HUB ================= */
+    #right-sidebar {
+      width: 350px;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-blue);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: width 0.25s var(--ease-spring), transform 0.25s var(--ease-spring);
+      z-index: 50;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    #right-sidebar.collapsed {
+      width: 0;
+      overflow: hidden;
+      border-left: none;
+    }
+
+    .hub-header {
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hub-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--gold-bright);
+    }
+
+    .hub-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+
+    .hub-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      padding: 8px 10px;
+      background: var(--bg-void);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .hub-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      padding: 7px 4px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .hub-tab.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(251, 191, 36, 0.14));
+      border-color: rgba(56, 189, 248, 0.35);
+      color: var(--gold-bright);
+    }
+
+    .hub-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hub-panel::-webkit-scrollbar { width: 4px; }
+    .hub-panel::-webkit-scrollbar-thumb { background: #263248; border-radius: 999px; }
+
+    .hub-form {
+      background: var(--bg-void);
+      border: 1px solid var(--border-blue);
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hub-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .hub-input, .hub-select, .hub-textarea {
+      width: 100%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.83rem;
+      outline: none;
+    }
+
+    .hub-input:focus, .hub-select:focus, .hub-textarea:focus {
+      border-color: var(--blue-bright);
+    }
+
+    .hub-textarea {
+      resize: vertical;
+      min-height: 68px;
+    }
+
+    .hub-submit-btn {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, var(--blue-core), var(--blue-bright));
+      color: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .hub-submit-btn.gold {
+      background: linear-gradient(135deg, var(--gold-core), var(--gold-bright));
+      color: #090d16;
+    }
+
+    .hub-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hub-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 13px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .hub-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .hub-card-title {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    .hub-card-sub {
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .tag-pill {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--blue-bright);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .tag-pill.high {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--danger);
+      border-color: rgba(248, 113, 113, 0.3);
+    }
+
+    .tag-pill.medium, .tag-pill.gold {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--gold-bright);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .todo-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .todo-check {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--gold-bright);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .todo-text {
+      flex: 1;
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    .todo-text.done {
+      text-decoration: line-through;
+      color: var(--text-secondary);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-void);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue-bright), var(--gold-bright));
+      transition: width 0.25s ease;
+    }
+
+    .mini-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .mini-btn {
+      background: var(--bg-void);
+      border: 1px solid var(--border-blue);
+      color: var(--blue-bright);
+      padding: 3px 8px;
+      border-radius: 7px;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+
+    .mini-btn:hover {
+      border-color: var(--gold-bright);
+      color: var(--gold-bright);
+    }
+
+    .mini-del {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+
+    .mini-del:hover { color: var(--danger); }
+
+    .vault-drop-btn {
+      border: 1.5px dashed rgba(56, 189, 248, 0.45);
+      background: rgba(56, 189, 248, 0.06);
+      border-radius: 14px;
+      padding: 14px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .vault-drop-btn:hover {
+      border-color: var(--gold-bright);
+      background: rgba(251, 191, 36, 0.08);
+    }
+
+    .vault-drop-btn strong {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--gold-bright);
+      margin-bottom: 3px;
+    }
+
+    .vault-drop-btn span {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .empty-hint {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      padding: 18px 8px;
+    }
+
+    /* ================= RESPONSIVE DRAWERS ================= */
+    @media (max-width: 1024px) {
+      #left-sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 280px;
+        transform: translateX(0);
+      }
+      #left-sidebar.collapsed {
+        width: 280px;
+        transform: translateX(-100%);
+      }
+      #right-sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        width: min(92vw, 360px);
+        transform: translateX(0);
+      }
+      #right-sidebar.collapsed {
+        width: min(92vw, 360px);
+        transform: translateX(100%);
+      }
+    }
+
     @media (max-width: 600px) {
-      header { padding-left: 14px; padding-right: 14px; }
-      .header-title { font-size: 0.98rem; }
-      .icon-btn { padding: 6px 11px; font-size: 0.78rem; }
-      #chat-scroll { padding: 16px 12px 12px; }
-      .user-bubble { max-width: 86%; padding: 11px 15px; font-size: 0.95rem; }
-      .msg-row.ai { gap: 10px; }
-      .ai-avatar { width: 28px; height: 28px; }
-      .ai-content { font-size: 0.95rem; }
-      .suggestion-row { flex-direction: column; }
-      .chip { width: 100%; }
-      .login-card { padding: 28px 20px; border-radius: 22px; }
+      header { padding-left: 12px; padding-right: 12px; }
+      .model-pill { display: none; }
+      .user-bubble { max-width: 88%; }
       .footer-hint { display: none; }
     }
   </style>
@@ -745,112 +1313,243 @@
 
   <!-- DRAG & DROP OVERLAY -->
   <div id="drop-overlay" class="hidden">
-    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
       <polyline points="17 8 12 3 7 8"></polyline>
       <line x1="12" y1="3" x2="12" y2="15"></line>
     </svg>
     <p>Drop file to attach to J.A.R.V.I.S.</p>
-    <span>Supports images, PPTX, audio, video, PDF &amp; source code</span>
+    <span>Supports screenshots, PPTX, PDF books, audio, video &amp; source code</span>
   </div>
 
   <!-- LOGIN VIEW -->
   <section id="login-screen">
     <div class="login-card">
       <div class="brand-orb">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
         </svg>
       </div>
       <h1>J.A.R.V.I.S.</h1>
-      <p>Enter your access passcode to initialize session</p>
+      <p>Authenticate to initialize tactical assistant &amp; knowledge vault</p>
       <form id="login-form" class="login-form">
         <input
           id="passcode-input"
           class="login-input"
           type="password"
-          placeholder="Passcode"
+          placeholder="Access Passcode"
           autocomplete="current-password"
           required
         />
-        <button id="login-btn" class="login-btn" type="submit">Unlock System</button>
+        <button id="login-btn" class="login-btn" type="submit">Initialize System</button>
         <div id="login-error" class="login-error"></div>
       </form>
     </div>
   </section>
 
-  <!-- CHAT VIEW -->
+  <!-- MAIN 3-PANE WORKSPACE -->
   <section id="app-screen" class="hidden">
-    <header>
-      <div class="header-left">
-        <span class="status-dot" title="Online"></span>
-        <span class="header-title">J.A.R.V.I.S.</span>
-        <span class="model-pill">Hydrogen</span>
+    <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+    <!-- LEFT SIDEBAR: CONVERSATIONS -->
+    <aside id="left-sidebar">
+      <div class="sidebar-top">
+        <button id="new-chat-btn" class="new-chat-hero-btn" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          New Conversation
+        </button>
+        <input id="conv-search" class="sidebar-search" type="text" placeholder="Search conversations..." />
       </div>
-      <div class="header-actions">
-        <button id="new-chat-btn" class="icon-btn" type="button">New chat</button>
+      <div class="sidebar-section-label">Recent Threads</div>
+      <div id="conversation-list"></div>
+      <div class="sidebar-footer">
+        <span class="sync-badge">● Cloud Synced</span>
         <button id="logout-btn" class="icon-btn logout" type="button">Logout</button>
       </div>
-    </header>
+    </aside>
 
-    <main id="chat-scroll">
-      <div id="chat-container" class="chat-container">
-        <div id="welcome-view">
-          <div class="welcome-heading">At your service, sir.</div>
-          <div class="welcome-sub">Analyze PPTs, snips, diagrams, audio, video, or write code.</div>
-          <div class="suggestion-row">
-            <button class="chip" type="button" data-prompt="Draw a clean diagram of client-server network architecture">Draw network diagram</button>
-            <button class="chip" type="button" data-prompt="Write a clean C# console program for binary search with comments">Generate clean C# code</button>
-            <button class="chip" type="button" data-prompt="What is the weather for today?">Quezon City weather</button>
+    <!-- CENTER PANE: CHAT & MULTIMODAL ENGINE -->
+    <div class="center-pane">
+      <header>
+        <div class="header-left">
+          <button id="toggle-left-btn" class="nav-toggle-btn" type="button" title="Toggle Conversations" aria-label="Toggle Conversations">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="15" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="brand-lockup">
+            <span class="arc-dot"></span>
+            <span class="header-title">J.A.R.V.I.S.</span>
+            <span class="model-pill">Hydrogen</span>
           </div>
         </div>
+        <div class="header-actions">
+          <button id="toggle-right-btn" class="hub-toggle-btn" type="button">
+            <span>Command Hub</span>
+            <span id="hub-count-badge" class="hub-badge">0</span>
+          </button>
+        </div>
+      </header>
+
+      <main id="chat-scroll">
+        <div id="chat-container" class="chat-container">
+          <div id="welcome-view">
+            <div class="welcome-heading">At your service, sir.</div>
+            <div class="welcome-sub">Manage your schedule, study vault, snips, PPTs, and code in one place.</div>
+            <div class="suggestion-grid">
+              <button class="chip" type="button" data-prompt="What is on my schedule and to-do list right now?">
+                <strong>Daily Briefing</strong>
+                <span>Check schedule &amp; pending tasks</span>
+              </button>
+              <button class="chip" type="button" data-prompt="Quiz me based on the notes and books stored in my Resource Vault">
+                <strong>Knowledge Vault</strong>
+                <span>Quiz me from my stored books &amp; PPTs</span>
+              </button>
+              <button class="chip" type="button" data-prompt="Draw a clean diagram of client-server network architecture">
+                <strong>Visual Engine</strong>
+                <span>Generate architecture diagram</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div class="input-dock">
+        <form id="chat-form" class="input-shell">
+          <div id="attachment-preview" class="hidden">
+            <div class="preview-info">
+              <img id="preview-thumb" class="preview-thumb hidden" alt="Preview" />
+              <span id="preview-name" class="preview-name"></span>
+            </div>
+            <button id="remove-attach-btn" class="remove-attach-btn" type="button" aria-label="Remove attachment">&times;</button>
+          </div>
+
+          <div class="input-row">
+            <input
+              id="file-input"
+              type="file"
+              class="hidden"
+              accept="image/*,audio/*,video/*,.pdf,.pptx,.docx,.txt,.csv,.cs,.java,.py,.sql,.js,.html,.json"
+            />
+            <button id="attach-btn" type="button" title="Attach file to current message" aria-label="Attach file">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              </svg>
+            </button>
+
+            <textarea
+              id="prompt-input"
+              rows="1"
+              placeholder="Ask J.A.R.V.I.S., Ctrl+V a snip, or query your Resource Vault..."
+            ></textarea>
+
+            <button id="send-btn" type="submit" aria-label="Send">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5"></line>
+                <polyline points="5 12 12 5 19 12"></polyline>
+              </svg>
+            </button>
+          </div>
+        </form>
+        <div class="footer-hint">J.A.R.V.I.S. automatically pulls relevant pages from your Resource Vault &amp; Notes when answering.</div>
       </div>
-    </main>
-
-    <div class="input-dock">
-      <form id="chat-form" class="input-shell">
-        <div id="attachment-preview" class="hidden">
-          <div class="preview-info">
-            <img id="preview-thumb" class="preview-thumb hidden" alt="Preview" />
-            <span id="preview-name" class="preview-name"></span>
-          </div>
-          <button id="remove-attach-btn" class="remove-attach-btn" type="button" aria-label="Remove attachment">&times;</button>
-        </div>
-
-        <div class="input-row">
-          <input
-            id="file-input"
-            type="file"
-            class="hidden"
-            accept="image/*,audio/*,video/*,.pdf,.pptx,.docx,.txt,.csv,.cs,.java,.py,.sql,.js,.html,.json"
-          />
-          <button id="attach-btn" type="button" title="Attach PPTX, image, audio, video, PDF, or code" aria-label="Attach file">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-            </svg>
-          </button>
-
-          <textarea
-            id="prompt-input"
-            rows="1"
-            placeholder="Ask J.A.R.V.I.S., press Ctrl+V to paste a snip, or attach files..."
-          ></textarea>
-
-          <button id="send-btn" type="submit" aria-label="Send">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5"></line>
-              <polyline points="5 12 12 5 19 12"></polyline>
-            </svg>
-          </button>
-        </div>
-      </form>
-      <div class="footer-hint">Press Ctrl+V to paste screenshots directly, drag &amp; drop files, or click the paperclip.</div>
     </div>
+
+    <!-- RIGHT SIDEBAR: COMMAND HUB (SCHEDULER, TO-DO, NOTES, RESOURCE VAULT) -->
+    <aside id="right-sidebar">
+      <div class="hub-header">
+        <span class="hub-title">Command Hub</span>
+        <button id="close-right-btn" class="hub-close-btn" type="button" aria-label="Close Command Hub">&times;</button>
+      </div>
+
+      <div class="hub-tabs">
+        <button class="hub-tab active" data-tab="schedule" type="button">Schedule</button>
+        <button class="hub-tab" data-tab="todos" type="button">To-Do</button>
+        <button class="hub-tab" data-tab="notes" type="button">Notes</button>
+        <button class="hub-tab" data-tab="vault" type="button">Vault</button>
+      </div>
+
+      <!-- TAB 1: SCHEDULER -->
+      <div id="tab-schedule" class="hub-panel">
+        <form id="schedule-form" class="hub-form">
+          <input id="sched-title" class="hub-input" type="text" placeholder="Event or deadline title..." required />
+          <div class="hub-row">
+            <input id="sched-date" class="hub-input" type="date" required />
+            <input id="sched-time" class="hub-input" type="time" />
+          </div>
+          <div class="hub-row">
+            <select id="sched-cat" class="hub-select">
+              <option value="Class">Class</option>
+              <option value="Project">Project</option>
+              <option value="Exam">Exam / Defense</option>
+              <option value="Personal">Personal</option>
+            </select>
+            <button class="hub-submit-btn" type="submit">+ Add Event</button>
+          </div>
+        </form>
+        <div id="schedule-list" class="hub-list"></div>
+      </div>
+
+      <!-- TAB 2: TO-DO LIST -->
+      <div id="tab-todos" class="hub-panel hidden">
+        <div class="progress-track">
+          <div id="todo-progress-fill" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <form id="todo-form" class="hub-form">
+          <input id="todo-input" class="hub-input" type="text" placeholder="New task or action item..." required />
+          <div class="hub-row">
+            <select id="todo-priority" class="hub-select">
+              <option value="high">High Priority</option>
+              <option value="medium" selected>Medium Priority</option>
+              <option value="low">Low Priority</option>
+            </select>
+            <button class="hub-submit-btn gold" type="submit">+ Add Task</button>
+          </div>
+        </form>
+        <div id="todo-list" class="hub-list"></div>
+      </div>
+
+      <!-- TAB 3: NOTES MODULE -->
+      <div id="tab-notes" class="hub-panel hidden">
+        <form id="note-form" class="hub-form">
+          <div class="hub-row">
+            <input id="note-title" class="hub-input" type="text" placeholder="Note title..." required />
+            <input id="note-tag" class="hub-input" type="text" placeholder="Subject tag" style="max-width: 110px;" />
+          </div>
+          <textarea id="note-content" class="hub-textarea" placeholder="Write quick notes, formulas, or reviewers..." required></textarea>
+          <button class="hub-submit-btn" type="submit">Save Note to Database</button>
+        </form>
+        <input id="note-search" class="hub-input" type="text" placeholder="Filter saved notes..." />
+        <div id="note-list" class="hub-list"></div>
+      </div>
+
+      <!-- TAB 4: RESOURCE VAULT (BOOKS, PPTX, STUDY FILES DATABASE) -->
+      <div id="tab-vault" class="hub-panel hidden">
+        <input
+          id="vault-file-input"
+          type="file"
+          class="hidden"
+          multiple
+          accept=".pdf,.pptx,.docx,.txt,.md,.csv,.cs,.java,.py,.sql,.js,.html,.json"
+        />
+        <div id="vault-upload-box" class="vault-drop-btn">
+          <strong>+ Add Books, PPTX, or Study Files</strong>
+          <span id="vault-status-text">PDF books, class PPTs &amp; docs indexed locally for J.A.R.V.I.S.</span>
+        </div>
+        <div id="vault-list" class="hub-list"></div>
+      </div>
+    </aside>
   </section>
 
   <script>
     const WORKER_URL = "https://jarvis-brain.hydroflouride4.workers.dev";
     const STORAGE_KEY = "jarvis_session_passcode";
+    const LOCAL_WS_KEY = "jarvis_local_workspace_v2";
 
     const loginScreen = document.getElementById("login-screen");
     const appScreen = document.getElementById("app-screen");
@@ -858,6 +1557,10 @@
     const passcodeInput = document.getElementById("passcode-input");
     const loginBtn = document.getElementById("login-btn");
     const loginError = document.getElementById("login-error");
+
+    const leftSidebar = document.getElementById("left-sidebar");
+    const rightSidebar = document.getElementById("right-sidebar");
+    const drawerBackdrop = document.getElementById("drawer-backdrop");
 
     const chatScroll = document.getElementById("chat-scroll");
     const chatContainer = document.getElementById("chat-container");
@@ -875,11 +1578,19 @@
     const dropOverlay = document.getElementById("drop-overlay");
 
     let activePasscode = localStorage.getItem(STORAGE_KEY) || "";
-    let history = [];
+    let activeConvId = null;
     let isSending = false;
     let isProcessingFile = false;
     let pendingAttachment = null;
     let dragCounter = 0;
+
+    let workspace = {
+      schedule: [],
+      todos: [],
+      notes: [],
+      conversations: [],
+      vaultCatalog: [],
+    };
 
     const SPARK_ICON = `
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -887,6 +1598,723 @@
       </svg>
     `;
 
+    // ================= INDEXEDDB FOR LARGE BOOKS & PPTX VAULT =================
+    function openVaultDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open("JarvisVaultDB", 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains("resources")) {
+            db.createObjectStore("resources", { keyPath: "id" });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function saveVaultRecord(record) {
+      const db = await openVaultDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("resources", "readwrite");
+        tx.objectStore("resources").put(record);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function getAllVaultRecords() {
+      const db = await openVaultDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("resources", "readonly");
+        const req = tx.objectStore("resources").getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function deleteVaultRecord(id) {
+      const db = await openVaultDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("resources", "readwrite");
+        tx.objectStore("resources").delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // Search IndexedDB Books/PPTs + Notes for relevant chunks matching user query
+    async function queryResourceVault(query, priorityResourceId = null) {
+      const stopWords = new Set([
+        "the", "and", "for", "that", "this", "with", "from", "what", "when", "where",
+        "which", "who", "whom", "whose", "why", "how", "about", "into", "through",
+        "during", "before", "after", "above", "below", "between", "under", "again",
+        "further", "then", "once", "here", "there", "all", "any", "both", "each",
+        "few", "more", "most", "other", "some", "such", "only", "own", "same", "than",
+        "too", "very", "can", "will", "just", "should", "now", "jarvis", "sir", "please",
+        "explain", "tell", "give", "using", "based", "book", "ppt", "notes", "slide", "page"
+      ]);
+
+      const keywords = (query || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !stopWords.has(w));
+
+      const records = await getAllVaultRecords();
+      const candidates = [];
+
+      // Score chunks from Vault books & PPTs
+      for (const rec of records) {
+        const chunks = rec.chunks || [];
+        for (const ch of chunks) {
+          const lower = ch.text.toLowerCase();
+          let score = rec.id === priorityResourceId ? 5 : 0;
+          for (const kw of keywords) {
+            if (lower.includes(kw)) {
+              score += 2;
+              if (rec.name.toLowerCase().includes(kw)) score += 1;
+            }
+          }
+          if (score > 0 || (keywords.length === 0 && records.length > 0)) {
+            candidates.push({
+              score: score || 1,
+              source: `[Vault: "${rec.name}" — ${ch.label}]`,
+              text: ch.text,
+            });
+          }
+        }
+      }
+
+      // Also score user notes in Command Hub
+      for (const note of workspace.notes || []) {
+        const combined = `${note.title} ${note.tag} ${note.content}`.toLowerCase();
+        let score = 0;
+        for (const kw of keywords) {
+          if (combined.includes(kw)) score += 2;
+        }
+        if (score > 0) {
+          candidates.push({
+            score,
+            source: `[Saved Note: "${note.title}" (${note.tag || "General"})]`,
+            text: note.content,
+          });
+        }
+      }
+
+      candidates.sort((a, b) => b.score - a.score);
+      const top = candidates.slice(0, 6);
+      if (top.length === 0) return "";
+
+      return top
+        .map((item) => `${item.source}\n${item.text.slice(0, 1800)}`)
+        .join("\n\n---\n\n");
+    }
+
+    // ================= WORKSPACE SYNC & PERSISTENCE =================
+    function saveLocalWorkspace() {
+      try {
+        localStorage.setItem(LOCAL_WS_KEY, JSON.stringify(workspace));
+      } catch (e) {}
+    }
+
+    function loadLocalWorkspace() {
+      try {
+        const raw = localStorage.getItem(LOCAL_WS_KEY);
+        if (raw) {
+          workspace = { ...workspace, ...JSON.parse(raw) };
+        }
+      } catch (e) {}
+    }
+
+    let syncTimer = null;
+    function scheduleCloudWorkspaceSync() {
+      saveLocalWorkspace();
+      renderAllHubPanels();
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(async () => {
+        if (!activePasscode) return;
+        const trimmedConvs = (workspace.conversations || []).slice(0, 20).map((c) => ({
+          id: c.id,
+          title: c.title,
+          updatedAt: c.updatedAt,
+          messages: (c.messages || []).slice(-24),
+        }));
+        try {
+          await fetch(`${WORKER_URL}/workspace`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Passcode": activePasscode,
+            },
+            body: JSON.stringify({
+              ...workspace,
+              conversations: trimmedConvs,
+            }),
+          });
+        } catch (e) {}
+      }, 1500);
+    }
+
+    async function fetchCloudWorkspace() {
+      if (!activePasscode) return;
+      try {
+        const res = await fetch(`${WORKER_URL}/workspace`, {
+          headers: { "X-Passcode": activePasscode },
+        });
+        if (res.ok) {
+          const cloud = await res.json();
+          if (cloud && typeof cloud === "object") {
+            if (Array.isArray(cloud.schedule) && cloud.schedule.length) workspace.schedule = cloud.schedule;
+            if (Array.isArray(cloud.todos) && cloud.todos.length) workspace.todos = cloud.todos;
+            if (Array.isArray(cloud.notes) && cloud.notes.length) workspace.notes = cloud.notes;
+            if (Array.isArray(cloud.conversations) && cloud.conversations.length) {
+              const localIds = new Set(workspace.conversations.map((c) => c.id));
+              for (const c of cloud.conversations) {
+                if (!localIds.has(c.id)) workspace.conversations.push(c);
+              }
+            }
+            saveLocalWorkspace();
+            renderAllHubPanels();
+          }
+        }
+      } catch (e) {}
+    }
+
+    // ================= DRAWER & NAVIGATION CONTROLS =================
+    function isCompactViewport() {
+      return window.innerWidth <= 1024;
+    }
+
+    function updateBackdrop() {
+      if (!isCompactViewport()) {
+        drawerBackdrop.classList.remove("active");
+        return;
+      }
+      const leftOpen = !leftSidebar.classList.contains("collapsed");
+      const rightOpen = !rightSidebar.classList.contains("collapsed");
+      drawerBackdrop.classList.toggle("active", leftOpen || rightOpen);
+    }
+
+    if (isCompactViewport()) {
+      leftSidebar.classList.add("collapsed");
+      rightSidebar.classList.add("collapsed");
+    }
+
+    document.getElementById("toggle-left-btn").addEventListener("click", () => {
+      leftSidebar.classList.toggle("collapsed");
+      if (isCompactViewport() && !leftSidebar.classList.contains("collapsed")) {
+        rightSidebar.classList.add("collapsed");
+      }
+      updateBackdrop();
+    });
+
+    document.getElementById("toggle-right-btn").addEventListener("click", () => {
+      rightSidebar.classList.toggle("collapsed");
+      if (isCompactViewport() && !rightSidebar.classList.contains("collapsed")) {
+        leftSidebar.classList.add("collapsed");
+      }
+      updateBackdrop();
+    });
+
+    document.getElementById("close-right-btn").addEventListener("click", () => {
+      rightSidebar.classList.add("collapsed");
+      updateBackdrop();
+    });
+
+    drawerBackdrop.addEventListener("click", () => {
+      leftSidebar.classList.add("collapsed");
+      rightSidebar.classList.add("collapsed");
+      updateBackdrop();
+    });
+
+    // Command Hub Tab Switching
+    document.querySelectorAll(".hub-tab").forEach((tabBtn) => {
+      tabBtn.addEventListener("click", () => {
+        document.querySelectorAll(".hub-tab").forEach((b) => b.classList.remove("active"));
+        tabBtn.classList.add("active");
+        const target = tabBtn.getAttribute("data-tab");
+        document.querySelectorAll(".hub-panel").forEach((p) => p.classList.add("hidden"));
+        document.getElementById(`tab-${target}`).classList.remove("hidden");
+      });
+    });
+
+    function openCommandHubTab(tabName) {
+      rightSidebar.classList.remove("collapsed");
+      if (isCompactViewport()) leftSidebar.classList.add("collapsed");
+      updateBackdrop();
+      const btn = document.querySelector(`.hub-tab[data-tab="${tabName}"]`);
+      if (btn) btn.click();
+    }
+
+    // ================= CONVERSATIONS SIDEBAR =================
+    function getActiveConversation() {
+      return workspace.conversations.find((c) => c.id === activeConvId) || null;
+    }
+
+    function startNewConversation() {
+      activeConvId = null;
+      clearAttachment();
+      chatContainer.innerHTML = "";
+      chatContainer.appendChild(welcomeView);
+      welcomeView.classList.remove("hidden");
+      renderConversationList();
+      if (isCompactViewport()) {
+        leftSidebar.classList.add("collapsed");
+        updateBackdrop();
+      }
+    }
+
+    function loadConversation(convId) {
+      const conv = workspace.conversations.find((c) => c.id === convId);
+      if (!conv) return;
+      activeConvId = conv.id;
+      clearAttachment();
+      chatContainer.innerHTML = "";
+      welcomeView.classList.add("hidden");
+
+      for (const msg of conv.messages || []) {
+        if (msg.role === "user") {
+          appendUserMessage(msg.text, msg.attachmentBadge ? { badgeText: msg.attachmentBadge } : null, false);
+        } else {
+          appendAIMessage({ reply: msg.text }, false);
+        }
+      }
+      renderConversationList();
+      scrollToBottom();
+      if (isCompactViewport()) {
+        leftSidebar.classList.add("collapsed");
+        updateBackdrop();
+      }
+    }
+
+    function renderConversationList() {
+      const listEl = document.getElementById("conversation-list");
+      const filter = (document.getElementById("conv-search").value || "").toLowerCase();
+      const filtered = (workspace.conversations || []).filter((c) =>
+        (c.title || "").toLowerCase().includes(filter)
+      );
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="empty-hint">No conversations yet.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = "";
+      for (const conv of filtered) {
+        const item = document.createElement("div");
+        item.className = `conv-item ${conv.id === activeConvId ? "active" : ""}`;
+        item.innerHTML = `
+          <div class="conv-meta">
+            <div class="conv-title">${escapeHtml(conv.title || "Untitled Session")}</div>
+            <div class="conv-date">${escapeHtml(conv.updatedAt || "")}</div>
+          </div>
+          <button class="conv-del-btn" type="button" title="Delete thread">&times;</button>
+        `;
+        item.querySelector(".conv-meta").addEventListener("click", () => loadConversation(conv.id));
+        item.querySelector(".conv-del-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          workspace.conversations = workspace.conversations.filter((c) => c.id !== conv.id);
+          if (activeConvId === conv.id) startNewConversation();
+          scheduleCloudWorkspaceSync();
+        });
+        listEl.appendChild(item);
+      }
+    }
+
+    document.getElementById("conv-search").addEventListener("input", renderConversationList);
+    document.getElementById("new-chat-btn").addEventListener("click", startNewConversation);
+
+    // ================= COMMAND HUB RENDERERS =================
+    function escapeHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function updateHubCountBadge() {
+      const pendingTodos = (workspace.todos || []).filter((t) => !t.done).length;
+      const upcomingEvents = (workspace.schedule || []).length;
+      document.getElementById("hub-count-badge").textContent = pendingTodos + upcomingEvents;
+    }
+
+    function renderSchedule() {
+      const list = document.getElementById("schedule-list");
+      const items = [...(workspace.schedule || [])].sort((a, b) =>
+        `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
+      );
+
+      if (items.length === 0) {
+        list.innerHTML = `<div class="empty-hint">No scheduled events. Add one above or ask J.A.R.V.I.S.</div>`;
+        return;
+      }
+
+      list.innerHTML = items
+        .map(
+          (ev) => `
+          <div class="hub-card">
+            <div class="hub-card-top">
+              <span class="hub-card-title">${escapeHtml(ev.title)}</span>
+              <button class="mini-del" type="button" onclick="removeScheduleItem('${ev.id}')">&times;</button>
+            </div>
+            <div class="hub-card-sub">
+              <span class="tag-pill ${ev.category === "Exam" ? "gold" : ""}">${escapeHtml(ev.category || "Class")}</span>
+              &nbsp;${escapeHtml(ev.date)} ${ev.time ? "• " + escapeHtml(ev.time) : ""}
+            </div>
+          </div>
+        `
+        )
+        .join("");
+    }
+
+    window.removeScheduleItem = function (id) {
+      workspace.schedule = workspace.schedule.filter((s) => s.id !== id);
+      scheduleCloudWorkspaceSync();
+    };
+
+    document.getElementById("schedule-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const title = document.getElementById("sched-title").value.trim();
+      const date = document.getElementById("sched-date").value;
+      const time = document.getElementById("sched-time").value;
+      const category = document.getElementById("sched-cat").value;
+      if (!title || !date) return;
+
+      workspace.schedule.push({
+        id: Date.now().toString(),
+        title,
+        date,
+        time: time || "All Day",
+        category,
+      });
+      document.getElementById("sched-title").value = "";
+      scheduleCloudWorkspaceSync();
+    });
+
+    function renderTodos() {
+      const list = document.getElementById("todo-list");
+      const items = workspace.todos || [];
+      const doneCount = items.filter((t) => t.done).length;
+      const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
+      document.getElementById("todo-progress-fill").style.width = `${pct}%`;
+
+      if (items.length === 0) {
+        list.innerHTML = `<div class="empty-hint">All clear, sir. Add a task above.</div>`;
+        return;
+      }
+
+      list.innerHTML = items
+        .map(
+          (t) => `
+          <div class="hub-card">
+            <div class="todo-row">
+              <input class="todo-check" type="checkbox" ${t.done ? "checked" : ""} onchange="toggleTodoItem('${t.id}')" />
+              <span class="todo-text ${t.done ? "done" : ""}">${escapeHtml(t.text)}</span>
+              <span class="tag-pill ${t.priority}">${escapeHtml(t.priority)}</span>
+              <button class="mini-del" type="button" onclick="removeTodoItem('${t.id}')">&times;</button>
+            </div>
+          </div>
+        `
+        )
+        .join("");
+    }
+
+    window.toggleTodoItem = function (id) {
+      workspace.todos = workspace.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+      scheduleCloudWorkspaceSync();
+    };
+
+    window.removeTodoItem = function (id) {
+      workspace.todos = workspace.todos.filter((t) => t.id !== id);
+      scheduleCloudWorkspaceSync();
+    };
+
+    document.getElementById("todo-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = document.getElementById("todo-input").value.trim();
+      const priority = document.getElementById("todo-priority").value;
+      if (!text) return;
+
+      workspace.todos.unshift({
+        id: Date.now().toString(),
+        text,
+        priority,
+        done: false,
+      });
+      document.getElementById("todo-input").value = "";
+      scheduleCloudWorkspaceSync();
+    });
+
+    function renderNotes() {
+      const list = document.getElementById("note-list");
+      const filter = (document.getElementById("note-search").value || "").toLowerCase();
+      const items = (workspace.notes || []).filter(
+        (n) =>
+          (n.title || "").toLowerCase().includes(filter) ||
+          (n.content || "").toLowerCase().includes(filter) ||
+          (n.tag || "").toLowerCase().includes(filter)
+      );
+
+      if (items.length === 0) {
+        list.innerHTML = `<div class="empty-hint">No notes saved yet. Write a study note above or click "Save to Notes" on any AI reply.</div>`;
+        return;
+      }
+
+      list.innerHTML = items
+        .map(
+          (n) => `
+          <div class="hub-card">
+            <div class="hub-card-top">
+              <span class="hub-card-title">${escapeHtml(n.title)}</span>
+              <button class="mini-del" type="button" onclick="removeNoteItem('${n.id}')">&times;</button>
+            </div>
+            <div class="hub-card-sub">${escapeHtml(n.content.slice(0, 180))}${n.content.length > 180 ? "..." : ""}</div>
+            <div class="mini-actions">
+              <span class="tag-pill">${escapeHtml(n.tag || "Study")}</span>
+              <button class="mini-btn" type="button" onclick="askJarvisAboutNote('${n.id}')">Ask J.A.R.V.I.S.</button>
+            </div>
+          </div>
+        `
+        )
+        .join("");
+    }
+
+    window.removeNoteItem = function (id) {
+      workspace.notes = workspace.notes.filter((n) => n.id !== id);
+      scheduleCloudWorkspaceSync();
+    };
+
+    window.askJarvisAboutNote = function (id) {
+      const note = workspace.notes.find((n) => n.id === id);
+      if (!note) return;
+      if (isCompactViewport()) {
+        rightSidebar.classList.add("collapsed");
+        updateBackdrop();
+      }
+      sendPrompt(`Review my note "${note.title}" and summarize key points or quiz me:\n\n${note.content}`);
+    };
+
+    document.getElementById("note-search").addEventListener("input", renderNotes);
+
+    document.getElementById("note-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const title = document.getElementById("note-title").value.trim();
+      const tag = document.getElementById("note-tag").value.trim() || "Study";
+      const content = document.getElementById("note-content").value.trim();
+      if (!title || !content) return;
+
+      workspace.notes.unshift({
+        id: Date.now().toString(),
+        title,
+        tag,
+        content,
+        updatedAt: new Date().toLocaleDateString(),
+      });
+      document.getElementById("note-title").value = "";
+      document.getElementById("note-content").value = "";
+      scheduleCloudWorkspaceSync();
+    });
+
+    // ================= RESOURCE VAULT (BOOKS, PPTX & DOCS DATABASE) =================
+    const vaultFileInput = document.getElementById("vault-file-input");
+    const vaultStatusText = document.getElementById("vault-status-text");
+
+    document.getElementById("vault-upload-box").addEventListener("click", () => {
+      vaultFileInput.click();
+    });
+
+    async function extractPdfChunks(file, onProgress) {
+      if (!window.pdfjsLib) throw new Error("PDF engine still loading. Try again in a moment.");
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const chunks = [];
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        if (onProgress && pageNum % 5 === 1) {
+          onProgress(`Indexing page ${pageNum} of ${pdf.numPages}...`);
+        }
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((i) => i.str).join(" ").replace(/\s+/g, " ").trim();
+        if (pageText) {
+          chunks.push({ label: `Page ${pageNum}`, text: pageText });
+        }
+      }
+      return {
+        detail: `${pdf.numPages} pages indexed`,
+        chunks,
+      };
+    }
+
+    async function extractPptxChunks(file, onProgress) {
+      if (!window.JSZip) throw new Error("PPTX engine still loading.");
+      const zip = await JSZip.loadAsync(file);
+      const slideFiles = Object.keys(zip.files)
+        .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+        .sort((a, b) => {
+          const numA = parseInt(a.match(/slide(\d+)\.xml/i)[1], 10);
+          const numB = parseInt(b.match(/slide(\d+)\.xml/i)[1], 10);
+          return numA - numB;
+        });
+
+      const chunks = [];
+      for (const path of slideFiles) {
+        const slideNum = path.match(/slide(\d+)\.xml/i)[1];
+        if (onProgress) onProgress(`Indexing slide ${slideNum} of ${slideFiles.length}...`);
+
+        const xmlStr = await zip.files[path].async("string");
+        const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
+        const slideText = Array.from(doc.getElementsByTagName("a:t"))
+          .map((n) => n.textContent)
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        let notesText = "";
+        const notesFile = zip.files[`ppt/notesSlides/notesSlide${slideNum}.xml`];
+        if (notesFile) {
+          const notesXml = await notesFile.async("string");
+          const notesDoc = new DOMParser().parseFromString(notesXml, "application/xml");
+          notesText = Array.from(notesDoc.getElementsByTagName("a:t"))
+            .map((n) => n.textContent)
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        const combined = [slideText, notesText ? `Notes: ${notesText}` : ""].filter(Boolean).join("\n");
+        if (combined) {
+          chunks.push({ label: `Slide ${slideNum}`, text: combined });
+        }
+      }
+
+      return {
+        detail: `${slideFiles.length} slides indexed`,
+        chunks,
+      };
+    }
+
+    async function extractPlainChunks(file) {
+      let rawText = "";
+      if (file.name.toLowerCase().endsWith(".docx")) {
+        rawText = await extractDocxText(file);
+      } else {
+        rawText = await file.text();
+      }
+      const chunks = [];
+      const chunkSize = 1800;
+      for (let i = 0; i < rawText.length; i += chunkSize) {
+        const partNum = Math.floor(i / chunkSize) + 1;
+        chunks.push({
+          label: `Section ${partNum}`,
+          text: rawText.slice(i, i + chunkSize).trim(),
+        });
+      }
+      return {
+        detail: `${chunks.length} sections indexed`,
+        chunks,
+      };
+    }
+
+    vaultFileInput.addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      for (const file of files) {
+        const lower = file.name.toLowerCase();
+        vaultStatusText.textContent = `Indexing ${file.name}...`;
+        try {
+          let parsed;
+          if (lower.endsWith(".pdf")) {
+            parsed = await extractPdfChunks(file, (msg) => (vaultStatusText.textContent = msg));
+          } else if (lower.endsWith(".pptx")) {
+            parsed = await extractPptxChunks(file, (msg) => (vaultStatusText.textContent = msg));
+          } else {
+            parsed = await extractPlainChunks(file);
+          }
+
+          const record = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: file.name,
+            detail: parsed.detail,
+            addedAt: new Date().toLocaleDateString(),
+            chunks: parsed.chunks,
+          };
+
+          await saveVaultRecord(record);
+          workspace.vaultCatalog = [
+            { id: record.id, name: record.name, detail: record.detail, addedAt: record.addedAt },
+            ...(workspace.vaultCatalog || []).filter((v) => v.name !== record.name),
+          ];
+          scheduleCloudWorkspaceSync();
+          await renderVaultList();
+        } catch (err) {
+          alert(`Failed to index ${file.name}: ${err.message}`);
+        }
+      }
+
+      vaultStatusText.textContent = "PDF books, class PPTs & docs indexed locally for J.A.R.V.I.S.";
+      vaultFileInput.value = "";
+    });
+
+    async function renderVaultList() {
+      const list = document.getElementById("vault-list");
+      const records = await getAllVaultRecords();
+
+      if (records.length === 0) {
+        list.innerHTML = `<div class="empty-hint">Your J.A.R.V.I.S. Database is empty. Upload PDF books, class PPTX decks, or study reviewers above.</div>`;
+        return;
+      }
+
+      list.innerHTML = records
+        .map(
+          (r) => `
+          <div class="hub-card">
+            <div class="hub-card-top">
+              <span class="hub-card-title">${escapeHtml(r.name)}</span>
+              <button class="mini-del" type="button" onclick="removeVaultItem('${r.id}')">&times;</button>
+            </div>
+            <div class="hub-card-sub">
+              <span class="tag-pill gold">AI Indexed</span> &nbsp;${escapeHtml(r.detail || "")}
+            </div>
+            <div class="mini-actions">
+              <button class="mini-btn" type="button" onclick="querySpecificVaultItem('${r.id}', '${escapeHtml(r.name)}')">Summarize &amp; Explain</button>
+            </div>
+          </div>
+        `
+        )
+        .join("");
+    }
+
+    window.removeVaultItem = async function (id) {
+      await deleteVaultRecord(id);
+      workspace.vaultCatalog = (workspace.vaultCatalog || []).filter((v) => v.id !== id);
+      scheduleCloudWorkspaceSync();
+      await renderVaultList();
+    };
+
+    window.querySpecificVaultItem = function (id, name) {
+      if (isCompactViewport()) {
+        rightSidebar.classList.add("collapsed");
+        updateBackdrop();
+      }
+      sendPrompt(`Summarize the main concepts and key takeaways from "${name}" in my Resource Vault.`, id);
+    };
+
+    function renderAllHubPanels() {
+      renderConversationList();
+      renderSchedule();
+      renderTodos();
+      renderNotes();
+      renderVaultList();
+      updateHubCountBadge();
+    }
+
+    // ================= AUTH & SESSION INIT =================
     function scrollToBottom() {
       requestAnimationFrame(() => {
         chatScroll.scrollTop = chatScroll.scrollHeight;
@@ -906,6 +2334,9 @@
     function showApp() {
       loginScreen.classList.add("hidden");
       appScreen.classList.remove("hidden");
+      loadLocalWorkspace();
+      renderAllHubPanels();
+      fetchCloudWorkspace();
       if (window.innerWidth > 600) promptInput.focus();
     }
 
@@ -917,38 +2348,11 @@
       if (window.innerWidth > 600) passcodeInput.focus();
     }
 
-    function resetChatUI() {
-      history = [];
-      clearAttachment();
-      chatContainer.innerHTML = "";
-      chatContainer.appendChild(welcomeView);
-      welcomeView.classList.remove("hidden");
-    }
-
     function logoutUser(reason = "") {
       activePasscode = "";
       localStorage.removeItem(STORAGE_KEY);
-      resetChatUI();
+      startNewConversation();
       showLogin(reason);
-    }
-
-    window.addEventListener("storage", (e) => {
-      if (e.key === STORAGE_KEY) {
-        if (!e.newValue) {
-          activePasscode = "";
-          resetChatUI();
-          showLogin("Logged out from another tab.");
-        } else {
-          activePasscode = e.newValue;
-          showApp();
-        }
-      }
-    });
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", () => {
-        if (!appScreen.classList.contains("hidden")) scrollToBottom();
-      });
     }
 
     if (activePasscode) {
@@ -963,7 +2367,7 @@
       if (!candidate) return;
 
       loginBtn.disabled = true;
-      loginBtn.textContent = "Verifying...";
+      loginBtn.textContent = "Authenticating...";
       loginError.textContent = "";
 
       try {
@@ -978,7 +2382,6 @@
         } else if (res.ok) {
           activePasscode = candidate;
           localStorage.setItem(STORAGE_KEY, candidate);
-          resetChatUI();
           showApp();
         } else {
           loginError.textContent = `System error (${res.status}). Try again.`;
@@ -987,14 +2390,13 @@
         loginError.textContent = "Cannot reach J.A.R.V.I.S. core. Check connection.";
       } finally {
         loginBtn.disabled = false;
-        loginBtn.textContent = "Unlock System";
+        loginBtn.textContent = "Initialize System";
       }
     });
 
-    document.getElementById("new-chat-btn").addEventListener("click", resetChatUI);
     document.getElementById("logout-btn").addEventListener("click", () => logoutUser());
 
-    // ================= MEDIA & DEEP PPTX PROCESSING =================
+    // ================= CHAT ATTACHMENT, SNIP PASTE & PPTX EXTRACTION =================
     attachBtn.addEventListener("click", () => {
       if (!isProcessingFile) fileInput.click();
     });
@@ -1008,12 +2410,9 @@
         m4a: "audio/mp4",
         wav: "audio/wav",
         ogg: "audio/ogg",
-        aac: "audio/aac",
-        flac: "audio/flac",
         mp4: "video/mp4",
         webm: "video/webm",
         mov: "video/quicktime",
-        mkv: "video/x-matroska",
         pdf: "application/pdf",
         png: "image/png",
         jpg: "image/jpeg",
@@ -1028,8 +2427,7 @@
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result || "";
-          const base64 = result.split(",")[1];
-          resolve({ base64, dataUrl: result });
+          resolve({ base64: result.split(",")[1], dataUrl: result });
         };
         reader.onerror = reject;
         reader.readAsDataURL(file);
@@ -1080,7 +2478,7 @@
     }
 
     async function extractPptxDeep(file, onProgress) {
-      if (!window.JSZip) throw new Error("PPTX parser still loading. Please try again in a second.");
+      if (!window.JSZip) throw new Error("PPTX parser still loading.");
       const zip = await JSZip.loadAsync(file);
 
       const slideFiles = Object.keys(zip.files)
@@ -1094,15 +2492,17 @@
       const slidesData = [];
       const mediaUsageCount = {};
 
-      for (let i = 0; i < slideFiles.length; i++) {
-        const path = slideFiles[i];
+      for (const path of slideFiles) {
         const slideNum = path.match(/slide(\d+)\.xml/i)[1];
         if (onProgress) onProgress(`Scanning Slide ${slideNum} of ${slideFiles.length}...`);
 
         const xmlStr = await zip.files[path].async("string");
         const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
-        const textNodes = Array.from(doc.getElementsByTagName("a:t"));
-        const slideText = textNodes.map((n) => n.textContent).join(" ").replace(/\s+/g, " ").trim();
+        const slideText = Array.from(doc.getElementsByTagName("a:t"))
+          .map((n) => n.textContent)
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
 
         let notesText = "";
         const notesFile = zip.files[`ppt/notesSlides/notesSlide${slideNum}.xml`];
@@ -1121,8 +2521,7 @@
         if (relsFile) {
           const relsXml = await relsFile.async("string");
           const relsDoc = new DOMParser().parseFromString(relsXml, "application/xml");
-          const rels = Array.from(relsDoc.getElementsByTagName("Relationship"));
-          for (const rel of rels) {
+          for (const rel of Array.from(relsDoc.getElementsByTagName("Relationship"))) {
             const type = rel.getAttribute("Type") || "";
             const target = rel.getAttribute("Target") || "";
             if (type.endsWith("/image") && target) {
@@ -1152,19 +2551,14 @@
 
       const extractedImages = [];
       const seenMedia = new Set();
-      const MAX_SLIDE_IMAGES = 28;
 
       for (const slide of prioritizedSlides) {
-        if (extractedImages.length >= MAX_SLIDE_IMAGES) break;
+        if (extractedImages.length >= 28) break;
         for (const imgPath of slide.imagePaths) {
-          if (extractedImages.length >= MAX_SLIDE_IMAGES) break;
-          if (mediaUsageCount[imgPath] > 4) continue;
-          if (seenMedia.has(imgPath)) continue;
+          if (extractedImages.length >= 28) break;
+          if (mediaUsageCount[imgPath] > 4 || seenMedia.has(imgPath)) continue;
           seenMedia.add(imgPath);
 
-          if (onProgress) {
-            onProgress(`Reading visuals from Slide ${slide.slideNum} (${extractedImages.length + 1})...`);
-          }
           const blob = await zip.files[imgPath].async("blob");
           if (blob.size < 3500) continue;
           const compressed = await compressImageBlob(blob, 1280, 0.82);
@@ -1199,18 +2593,16 @@
     }
 
     async function extractDocxText(file) {
-      if (!window.JSZip) throw new Error("DOCX parser still loading. Try again in a second.");
+      if (!window.JSZip) throw new Error("DOCX parser still loading.");
       const zip = await JSZip.loadAsync(file);
       const docXml = zip.files["word/document.xml"];
-      if (!docXml) return "No readable text found in document.";
+      if (!docXml) return "No readable text found.";
       const xmlStr = await docXml.async("string");
       const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
-      const paras = Array.from(doc.getElementsByTagName("w:p")).map((p) =>
-        Array.from(p.getElementsByTagName("w:t"))
-          .map((t) => t.textContent)
-          .join("")
-      );
-      return paras.filter(Boolean).join("\n");
+      return Array.from(doc.getElementsByTagName("w:p"))
+        .map((p) => Array.from(p.getElementsByTagName("w:t")).map((t) => t.textContent).join(""))
+        .filter(Boolean)
+        .join("\n");
     }
 
     async function uploadLargeMediaToGemini(file, mimeType) {
@@ -1224,20 +2616,14 @@
         body: file,
       });
       const data = await res.json();
-      if (!res.ok || !data.fileUri) {
-        throw new Error(data.error || `Upload failed (${res.status})`);
-      }
+      if (!res.ok || !data.fileUri) throw new Error(data.error || `Upload failed (${res.status})`);
       return data;
     }
 
-    // Unified file processor used by Paperclip Picker, Ctrl+V Paste, and Drag & Drop
     async function processSelectedFile(file) {
       if (!file || isProcessingFile) return;
-
-      const maxBytes = 95 * 1024 * 1024;
-      if (file.size > maxBytes) {
+      if (file.size > 95 * 1024 * 1024) {
         alert("Please select a file under 95 MB.");
-        fileInput.value = "";
         return;
       }
 
@@ -1252,9 +2638,7 @@
 
       try {
         if (lowerName.endsWith(".pptx")) {
-          const pptxResult = await extractPptxDeep(file, (statusMsg) => {
-            previewName.textContent = statusMsg;
-          });
+          const pptxResult = await extractPptxDeep(file, (msg) => (previewName.textContent = msg));
           pendingAttachment = {
             type: "pptx",
             name: file.name,
@@ -1303,14 +2687,13 @@
           mimeType.startsWith("video/") ||
           mimeType === "application/pdf"
         ) {
-          const inlineLimit = 10 * 1024 * 1024;
           const kindLabel = mimeType.startsWith("audio/")
             ? "Audio"
             : mimeType.startsWith("video/")
             ? "Video"
             : "PDF";
 
-          if (file.size <= inlineLimit) {
+          if (file.size <= 10 * 1024 * 1024) {
             const { base64 } = await fileToBase64(file);
             pendingAttachment = {
               type: "inline",
@@ -1320,7 +2703,7 @@
               badgeText: `${kindLabel}: ${file.name}`,
             };
           } else {
-            previewName.textContent = `Uploading large ${kindLabel.toLowerCase()} (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`;
+            previewName.textContent = `Streaming ${kindLabel.toLowerCase()} (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`;
             const uploaded = await uploadLargeMediaToGemini(file, mimeType);
             pendingAttachment = {
               type: "file_uri",
@@ -1356,7 +2739,7 @@
       if (file) await processSelectedFile(file);
     });
 
-    // Global Ctrl+V Clipboard Paste Support (Win+Shift+S snips, copied images & files)
+    // Global Ctrl+V Snip & Clipboard Paste
     document.addEventListener("paste", async (e) => {
       if (appScreen.classList.contains("hidden") || isProcessingFile) return;
       const items = e.clipboardData?.items;
@@ -1368,13 +2751,11 @@
           if (blob) {
             e.preventDefault();
             const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
-            const timestamp = new Date().toTimeString().slice(0, 8).replace(/:/g, "");
+            const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, "");
             const namedFile =
               blob.name && blob.name !== "image.png"
                 ? blob
-                : new File([blob], `snip-${timestamp}.${ext}`, {
-                    type: blob.type || "image/png",
-                  });
+                : new File([blob], `snip-${stamp}.${ext}`, { type: blob.type || "image/png" });
             await processSelectedFile(namedFile);
             return;
           }
@@ -1382,7 +2763,6 @@
       }
     });
 
-    // Drag-and-Drop Support across the app window
     window.addEventListener("dragenter", (e) => {
       if (appScreen.classList.contains("hidden")) return;
       if (e.dataTransfer?.types?.includes("Files")) {
@@ -1409,12 +2789,9 @@
       if (file) await processSelectedFile(file);
     });
 
-    // ================= FORMATTING & CODE COPY =================
+    // ================= MESSAGE RENDERING & ACTIONS =================
     function formatReply(text) {
-      let safe = (text || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+      let safe = escapeHtml(text || "");
 
       const codeBlocks = [];
       safe = safe.replace(/```([a-zA-Z0-9_+-]*)\s*\n([\s\S]*?)```/g, (_, lang, code) => {
@@ -1467,11 +2844,29 @@
       if (!contentEl) return;
       navigator.clipboard.writeText(contentEl.innerText).then(() => {
         btn.textContent = "Copied!";
-        setTimeout(() => (btn.textContent = "Copy response"), 1600);
+        setTimeout(() => (btn.textContent = "Copy"), 1600);
       });
     };
 
-    function appendUserMessage(text, attachmentObj) {
+    window.saveReplyToNotes = function (btn) {
+      const contentEl = btn.closest(".ai-body").querySelector(".ai-content");
+      if (!contentEl) return;
+      const text = contentEl.innerText.trim();
+      const firstLine = text.split("\n")[0].slice(0, 48) || "J.A.R.V.I.S. Note";
+      workspace.notes.unshift({
+        id: Date.now().toString(),
+        title: firstLine,
+        tag: "J.A.R.V.I.S.",
+        content: text,
+        updatedAt: new Date().toLocaleDateString(),
+      });
+      scheduleCloudWorkspaceSync();
+      btn.textContent = "Saved to Notes!";
+      setTimeout(() => (btn.textContent = "Save to Notes"), 1800);
+      openCommandHubTab("notes");
+    };
+
+    function appendUserMessage(text, attachmentObj, shouldScroll = true) {
       welcomeView.classList.add("hidden");
       const row = document.createElement("div");
       row.className = "msg-row user";
@@ -1497,7 +2892,7 @@
       }
 
       chatContainer.appendChild(row);
-      scrollToBottom();
+      if (shouldScroll) scrollToBottom();
     }
 
     function appendThinkingIndicator() {
@@ -1512,7 +2907,7 @@
       return row;
     }
 
-    function appendAIMessage(data) {
+    function appendAIMessage(data, shouldScroll = true) {
       const row = document.createElement("div");
       row.className = "msg-row ai";
 
@@ -1546,28 +2941,50 @@
             ${mediaHtml}
           </div>
           <div class="msg-toolbar">
-            <button class="copy-msg-btn" type="button" onclick="copyFullMessage(this)">Copy response</button>
+            <button class="msg-action-btn" type="button" onclick="copyFullMessage(this)">Copy</button>
+            <button class="msg-action-btn gold" type="button" onclick="saveReplyToNotes(this)">Save to Notes</button>
           </div>
         </div>
       `;
       chatContainer.appendChild(row);
-      scrollToBottom();
+      if (shouldScroll) scrollToBottom();
     }
 
-    async function sendPrompt(text) {
+    async function sendPrompt(text, priorityVaultId = null) {
       const cleanText = text.trim();
       if ((!cleanText && !pendingAttachment) || isSending || isProcessingFile || !activePasscode) return;
 
       isSending = true;
       sendBtn.disabled = true;
 
+      // Ensure an active conversation thread exists
+      if (!activeConvId) {
+        activeConvId = Date.now().toString();
+        const autoTitle = (cleanText || pendingAttachment?.name || "New Session").slice(0, 42);
+        workspace.conversations.unshift({
+          id: activeConvId,
+          title: autoTitle,
+          updatedAt: new Date().toLocaleDateString(),
+          messages: [],
+        });
+      }
+
+      const conv = getActiveConversation();
+      const historyForApi = (conv?.messages || []).slice(-16).map((m) => ({
+        role: m.role,
+        parts: [{ text: m.text }],
+      }));
+
       const currentAttachment = pendingAttachment;
-      appendUserMessage(cleanText, currentAttachment);
+      appendUserMessage(cleanText, currentAttachment, true);
       promptInput.value = "";
       promptInput.style.height = "auto";
       clearAttachment();
 
       const loader = appendThinkingIndicator();
+
+      // Automatically retrieve relevant pages/slides from Resource Vault & Notes
+      const vaultContext = await queryResourceVault(cleanText, priorityVaultId);
 
       const payloadAttachment = currentAttachment
         ? {
@@ -1590,8 +3007,15 @@
           body: JSON.stringify({
             message: cleanText,
             passcode: activePasscode,
-            history,
+            history: historyForApi,
             attachment: payloadAttachment,
+            vaultContext,
+            workspaceSnapshot: {
+              schedule: workspace.schedule,
+              todos: workspace.todos,
+              notes: (workspace.notes || []).map((n) => ({ title: n.title, tag: n.tag })),
+              vaultCatalog: workspace.vaultCatalog,
+            },
           }),
         });
 
@@ -1603,14 +3027,38 @@
 
         const data = await res.json();
         loader.remove();
-        appendAIMessage(data);
+        appendAIMessage(data, true);
 
-        if (res.ok) {
-          const historyNote = currentAttachment
-            ? `${cleanText || "Analyze this file"} [${currentAttachment.badgeText || currentAttachment.name}]`
+        if (res.ok && conv) {
+          const userMsgText = currentAttachment
+            ? `${cleanText || "Analyze attached file"} [${currentAttachment.badgeText || currentAttachment.name}]`
             : cleanText;
-          history.push({ role: "user", parts: [{ text: historyNote }] });
-          history.push({ role: "model", parts: [{ text: data.reply }] });
+
+          conv.messages.push({
+            role: "user",
+            text: userMsgText,
+            attachmentBadge: currentAttachment?.badgeText || null,
+          });
+          conv.messages.push({
+            role: "model",
+            text: data.reply,
+          });
+          conv.updatedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+          // Move active conversation to top
+          workspace.conversations = [
+            conv,
+            ...workspace.conversations.filter((c) => c.id !== conv.id),
+          ];
+
+          // Apply live updates if J.A.R.V.I.S. modified Schedule, To-Dos, or Notes via tool call
+          if (data.updatedWorkspace) {
+            if (Array.isArray(data.updatedWorkspace.schedule)) workspace.schedule = data.updatedWorkspace.schedule;
+            if (Array.isArray(data.updatedWorkspace.todos)) workspace.todos = data.updatedWorkspace.todos;
+            if (Array.isArray(data.updatedWorkspace.notes)) workspace.notes = data.updatedWorkspace.notes;
+          }
+
+          scheduleCloudWorkspaceSync();
         }
       } catch (err) {
         loader.remove();
