@@ -8,6 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
   <style>
@@ -798,7 +801,7 @@
     #chat-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
 
     .chat-container {
-      max-width: 720px;
+      max-width: 740px;
       margin: 0 auto;
       min-height: 100%;
       display: flex;
@@ -972,6 +975,27 @@
       margin: 8px 0;
     }
 
+    /* KaTeX Math Styling */
+    .math-display {
+      margin: 12px 0;
+      padding: 8px 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-hairline);
+      border-radius: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .katex-display {
+      margin: 0.25em 0 !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .katex {
+      font-size: 1.04em;
+    }
+
     .ai-content code {
       background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
@@ -1118,7 +1142,7 @@
     }
 
     .composer-pill {
-      max-width: 720px;
+      max-width: 740px;
       margin: 0 auto;
       background: var(--bg-input);
       border: 1px solid var(--border-strong);
@@ -1558,7 +1582,7 @@
       <line x1="12" y1="3" x2="12" y2="15"></line>
     </svg>
     <p>Drop file to attach</p>
-    <span>Images, PPTX, PDF books, audio, video &amp; code</span>
+    <span>Codebases, schematics, PPTX, PDF books, audio &amp; video</span>
   </div>
 
   <!-- GEMINI-STYLE ISOLATED TEXT SELECTION SHEET -->
@@ -1761,7 +1785,7 @@
           <span class="header-brand-title">J.A.R.V.I.S.</span>
           <span class="model-tag">
             <span class="model-tag-dot"></span>
-            Hydrogen
+            Engineering &amp; Code
           </span>
         </div>
 
@@ -1781,19 +1805,19 @@
           <!-- CLEAN EMPTY STATE -->
           <div id="welcome-view">
             <h1 class="welcome-heading">At your service, sir.</h1>
-            <p class="welcome-sub">Ask anything, analyze slides and snips, or query your study vault.</p>
+            <p class="welcome-sub">Ready for calculus derivations, Civil/Mechanical/Electrical analysis, and full-file debugging.</p>
             <div class="chip-strip">
-              <button class="prompt-chip" type="button" data-prompt="Summarize my upcoming schedule and pending tasks.">
+              <button class="prompt-chip" type="button" data-prompt="Solve a step-by-step engineering problem with full LaTeX derivations and unit verification.">
                 <span class="chip-dot"></span>
-                Today's briefing
+                Engineering derivation
+              </button>
+              <button class="prompt-chip" type="button" data-prompt="Analyze and debug my attached source file, identify root causes, and provide the complete fixed code.">
+                <span class="chip-dot amber"></span>
+                Debug codebase
               </button>
               <button class="prompt-chip" type="button" data-prompt="Quiz me on key concepts from my Study Vault.">
-                <span class="chip-dot amber"></span>
-                Quiz from Vault
-              </button>
-              <button class="prompt-chip" type="button" data-prompt="Review my saved notes and highlight key takeaways.">
                 <span class="chip-dot"></span>
-                Review notes
+                Quiz from Vault
               </button>
             </div>
           </div>
@@ -1819,7 +1843,7 @@
               id="file-input"
               type="file"
               class="hidden"
-              accept="image/*,.pdf,.pptx,.txt,.md,.py,.js,.java,.cs,.html,.css,.json,.sql,.csv,audio/*,video/*"
+              accept="image/*,.pdf,.pptx,.txt,.md,.py,.js,.ts,.tsx,.jsx,.java,.cs,.c,.cpp,.h,.hpp,.ino,.v,.sv,.vhd,.asm,.m,.rs,.go,.html,.css,.json,.xml,.yaml,.yml,.sql,.csv,.log,audio/*,video/*"
             />
             <button id="attach-btn" class="attach-circle-btn" type="button" title="Attach file or image">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -1924,10 +1948,10 @@
         <div class="section-bar">
           <span class="section-title">Study Vault (RAG)</span>
         </div>
-        <input id="vault-file-input" type="file" class="hidden" accept=".pdf,.pptx,.txt,.md,.csv,.json" multiple />
+        <input id="vault-file-input" type="file" class="hidden" accept=".pdf,.pptx,.txt,.md,.csv,.json,.c,.cpp,.h,.py,.java,.cs,.m,.v,.vhd" multiple />
         <div id="vault-drop-zone" class="vault-drop-btn">
           <strong>+ Upload Study Material</strong>
-          <span>PDF books, PPTX slides, or text notes</span>
+          <span>Engineering PDFs, PPTX decks, code &amp; notes</span>
         </div>
         <div id="vault-list" class="hub-list"></div>
       </div>
@@ -1937,6 +1961,7 @@
   <script>
     /* ================= STATE & STORAGE ================= */
     const DEFAULT_WORKER_URL = "https://jarvis-brain.hydroflouride4.workers.dev";
+    const MAX_FILE_CHARS = 180000;
 
     const STORAGE_KEYS = {
       apiUrl: "jarvis_api_url",
@@ -2207,17 +2232,35 @@
       $("server-modal").classList.add("hidden");
     }
 
-    /* ================= MARKDOWN RENDERER ================= */
+    /* ================= MARKDOWN & KATEX RENDERER ================= */
     function renderMarkdown(raw) {
       const text = String(raw || "").replace(/\r\n/g, "\n");
       const codeBlocks = [];
-      const withPlaceholders = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      const displayMath = [];
+      const inlineMath = [];
+
+      // 1. Protect fenced code blocks first so $ inside code is untouched
+      let safeSource = text.replace(/```([a-zA-Z0-9_+#-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
         const idx = codeBlocks.length;
         codeBlocks.push({ lang: lang || "code", code: code.replace(/\n$/, "") });
         return `\u0000CODEBLOCK_${idx}\u0000`;
       });
 
-      const lines = withPlaceholders.split("\n");
+      // 2. Protect display math ($$ ... $$) from Markdown *, _, and HTML escaping
+      safeSource = safeSource.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+        const idx = displayMath.length;
+        displayMath.push(expr.trim());
+        return `\n\u0000MATHDISPLAY_${idx}\u0000\n`;
+      });
+
+      // 3. Protect inline math ($ ... $), avoiding currency like $50
+      safeSource = safeSource.replace(/(^|[^\\])\$([^\s$][^$\n]*?[^\s\\$]|[^\s\\$])\$(?!\d)/g, (_, prefix, expr) => {
+        const idx = inlineMath.length;
+        inlineMath.push(expr);
+        return `${prefix}\u0000MATHINLINE_${idx}\u0000`;
+      });
+
+      const lines = safeSource.split("\n");
       const htmlParts = [];
       let paragraphLines = [];
       let listType = null;
@@ -2240,6 +2283,9 @@
         safe = safe.replace(/`([^`]+)`/g, "<code>$1</code>");
         safe = safe.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
         safe = safe.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+        safe = safe.replace(/\u0000MATHINLINE_(\d+)\u0000/g, (_, idx) => {
+          return `<span class="math-inline">$${escapeHtml(inlineMath[Number(idx)])}$</span>`;
+        });
         return safe;
       }
 
@@ -2259,13 +2305,22 @@
           continue;
         }
 
+        const dmMatch = line.trim().match(/^\u0000MATHDISPLAY_(\d+)\u0000$/);
+        if (dmMatch) {
+          flushParagraph();
+          flushList();
+          const expr = displayMath[Number(dmMatch[1])];
+          htmlParts.push(`<div class="math-display">$$${escapeHtml(expr)}$$</div>`);
+          continue;
+        }
+
         if (!line.trim()) {
           flushParagraph();
           flushList();
           continue;
         }
 
-        const hMatch = line.match(/^#{1,3}\s+(.*)$/);
+        const hMatch = line.match(/^#{1,4}\s+(.*)$/);
         if (hMatch) {
           flushParagraph();
           flushList();
@@ -2323,8 +2378,25 @@
           `</div>`
         );
       });
+      output = output.replace(/\u0000MATHDISPLAY_(\d+)\u0000/g, (_, idx) => {
+        return `<div class="math-display">$$${escapeHtml(displayMath[Number(idx)])}$$</div>`;
+      });
 
       return { html: output, codeBlocks };
+    }
+
+    function typesetMath(containerEl) {
+      if (!window.renderMathInElement || !containerEl) return;
+      try {
+        window.renderMathInElement(containerEl, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false }
+          ],
+          ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"],
+          throwOnError: false
+        });
+      } catch {}
     }
 
     /* ================= CONVERSATIONS & CHAT RENDERING ================= */
@@ -2428,6 +2500,7 @@
 
       const { html, codeBlocks } = renderMarkdown(msg.text || "");
       content.innerHTML = html;
+      typesetMath(content);
 
       content.querySelectorAll(".code-wrapper").forEach((wrap) => {
         const idx = Number(wrap.dataset.codeIdx);
@@ -2478,12 +2551,12 @@
       noteBtn.type = "button";
       noteBtn.textContent = "Save to Notes";
       noteBtn.addEventListener("click", () => {
-        const snippetTitle = (msg.text || "").split("\n")[0].replace(/[#*`]/g, "").trim().slice(0, 48) || "J.A.R.V.I.S. Note";
+        const snippetTitle = (msg.text || "").split("\n")[0].replace(/[#*`$]/g, "").trim().slice(0, 48) || "J.A.R.V.I.S. Note";
         state.notes.unshift({
           id: uid(),
           title: snippetTitle,
           content: msg.text || "",
-          tag: "Study",
+          tag: "Engineering",
           updatedAt: new Date().toLocaleDateString()
         });
         scheduleCloudSync();
@@ -2551,7 +2624,7 @@
       scrollEl.scrollTop = scrollEl.scrollHeight;
     }
 
-    /* ================= FILE & DOCUMENT PARSING (WORKER-COMPATIBLE) ================= */
+    /* ================= FILE & DOCUMENT PARSING (HIGH-CAPACITY ENGINEERING) ================= */
     async function uploadLargeMediaToWorker(file) {
       const base = state.apiUrl.replace(/\/+$/, "");
       const res = await fetch(`${base}/upload`, {
@@ -2582,7 +2655,7 @@
         return await uploadLargeMediaToWorker(file);
       }
 
-      /* Inline images for multimodal vision */
+      /* Inline images (handwritten math, free-body diagrams, schematics, oscilloscope snips) */
       if (mimeType.startsWith("image/")) {
         const dataUrl = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -2600,7 +2673,7 @@
         };
       }
 
-      /* PowerPoint (.pptx) native slide text + embedded slide images */
+      /* PowerPoint (.pptx) native slide text + up to 12 embedded schematics/diagrams */
       if (name.toLowerCase().endsWith(".pptx") && window.JSZip) {
         const buf = await file.arrayBuffer();
         const zip = await window.JSZip.loadAsync(buf);
@@ -2617,7 +2690,7 @@
 
         const mediaFiles = Object.keys(zip.files)
           .filter((f) => /^ppt\/media\/.+\.(png|jpg|jpeg|webp)$/i.test(f))
-          .slice(0, 5);
+          .slice(0, 12);
 
         const slideImages = [];
         for (let i = 0; i < mediaFiles.length; i++) {
@@ -2625,7 +2698,7 @@
           const b64 = await zip.files[mf].async("base64");
           const ext = mf.split(".").pop().toLowerCase();
           slideImages.push({
-            slideLabel: `Embedded Graphic ${i + 1}`,
+            slideLabel: `Embedded Diagram ${i + 1}`,
             mimeType: ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg",
             data: b64
           });
@@ -2636,18 +2709,18 @@
           name,
           mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
           slideCount: slideFiles.length,
-          slidesText: slides.join("\n").slice(0, 24000),
+          slidesText: slides.join("\n").slice(0, MAX_FILE_CHARS),
           slideImages
         };
       }
 
-      /* PDF extraction */
+      /* PDF extraction (up to 80 pages / 180,000 chars for engineering textbooks & manuals) */
       if (name.toLowerCase().endsWith(".pdf") && window.pdfjsLib) {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
         const buf = await file.arrayBuffer();
         const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-        const maxPages = Math.min(pdf.numPages, 25);
+        const maxPages = Math.min(pdf.numPages, 80);
         const pages = [];
         for (let p = 1; p <= maxPages; p++) {
           const page = await pdf.getPage(p);
@@ -2659,17 +2732,17 @@
           type: "text",
           name,
           mimeType: "application/pdf",
-          content: pages.join("\n").slice(0, 24000)
+          content: pages.join("\n").slice(0, MAX_FILE_CHARS)
         };
       }
 
-      /* Plain text / source code */
+      /* Plain text & large source code files (up to 180,000 chars / ~4,500 lines) */
       const text = await file.text();
       return {
         type: "text",
         name,
         mimeType: "text/plain",
-        content: text.slice(0, 24000)
+        content: text.slice(0, MAX_FILE_CHARS)
       };
     }
 
@@ -2684,7 +2757,12 @@
         updateSendButtonState();
         return;
       }
-      $("preview-name").textContent = att.name;
+      const sizeInfo = att.content
+        ? ` (${att.content.length.toLocaleString()} chars)`
+        : att.slidesText
+        ? ` (${att.slideCount} slides)`
+        : "";
+      $("preview-name").textContent = att.name + sizeInfo;
       if (att.dataUrl) {
         thumb.src = att.dataUrl;
         thumb.classList.remove("hidden");
@@ -2711,7 +2789,7 @@
     /* ================= BACKEND CHAT QUERY (ROOT / WITH GEMINI HISTORY) ================= */
     function buildVaultContext(prompt) {
       if (!state.vault.length) return "";
-      const terms = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+      const terms = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
       const scored = state.vault.map((doc) => {
         const hay = (doc.name + " " + doc.content).toLowerCase();
         let score = 0;
@@ -2722,8 +2800,8 @@
       });
       scored.sort((a, b) => b.score - a.score);
       return scored
-        .slice(0, 2)
-        .map((s) => `[Vault: ${s.doc.name}]\n${s.doc.content.slice(0, 4000)}`)
+        .slice(0, 3)
+        .map((s) => `[Vault: ${s.doc.name}]\n${s.doc.content.slice(0, 16000)}`)
         .join("\n\n");
     }
 
@@ -2975,7 +3053,7 @@
       const list = $("vault-list");
       list.innerHTML = "";
       if (!state.vault.length) {
-        list.innerHTML = `<div class="empty-hint">Upload PDFs or PPTX decks so J.A.R.V.I.S. can reference them in answers.</div>`;
+        list.innerHTML = `<div class="empty-hint">Upload engineering PDFs, PPTX decks, or source files so J.A.R.V.I.S. can reference them in answers.</div>`;
         return;
       }
       state.vault.forEach((doc) => {
@@ -3242,7 +3320,7 @@
           id: uid(),
           title: $("note-title").value.trim(),
           content: $("note-body").value.trim(),
-          tag: "Study",
+          tag: "Engineering",
           updatedAt: new Date().toLocaleDateString()
         });
         $("note-title").value = "";
