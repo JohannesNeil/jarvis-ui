@@ -298,7 +298,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     tab.addEventListener("click", () => openCommandHubTab(tab.dataset.tab));
   });
 
- $("sched-form").addEventListener("submit", (e) => {
+  $("sched-form").addEventListener("submit", (e) => {
     e.preventDefault();
     state.schedule.unshift({
       id: uid(),
@@ -306,7 +306,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       date: new Date().toISOString().slice(0, 10),
       time: $("sched-time").value.trim(),
       category: $("sched-tag").value,
-      done: false
+      done: false,
+      completedBy: null
     });
     $("sched-title").value = "";
     $("sched-time").value = "";
@@ -320,7 +321,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       id: uid(),
       text: $("todo-text").value.trim(),
       priority: $("todo-priority").value,
-      done: false
+      done: false,
+      completedBy: null
     });
     $("todo-text").value = "";
     scheduleCloudSync();
