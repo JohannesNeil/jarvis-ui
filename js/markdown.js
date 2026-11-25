@@ -43,7 +43,7 @@ export function renderMarkdown(raw) {
     return `${prefix}\u0000MATHINLINE_${idx}\u0000`;
   });
 
-  // Extract Markdown links [Label](https://...) before inline formatting so underscores/asterisks in URLs stay intact
+  // 1. Extract Markdown links [Label](https://...) before inline formatting
   safeSource = safeSource.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, (full, label, rawUrl) => {
     const cleanHref = sanitizeSafeUrl(rawUrl);
     if (!cleanHref) return full;
@@ -52,7 +52,16 @@ export function renderMarkdown(raw) {
     return `\u0000LINK_${idx}\u0000`;
   });
 
-  // Extract standalone bare URLs (https://...) outside Markdown links
+  // 2. Extract bracketed raw URLs [https://...] that some models output
+  safeSource = safeSource.replace(/\[(https?:\/\/[^\]\s]+)\]/gi, (full, rawUrl) => {
+    const cleanHref = sanitizeSafeUrl(rawUrl);
+    if (!cleanHref) return full;
+    const idx = links.length;
+    links.push({ label: cleanHref, href: cleanHref });
+    return `\u0000LINK_${idx}\u0000`;
+  });
+
+  // 3. Extract standalone bare URLs (https://...) outside Markdown links
   safeSource = safeSource.replace(/(^|[\s(>])(https?:\/\/[^\s)<>"']+)/gi, (full, prefix, rawUrl) => {
     const trailingPunct = rawUrl.match(/[.,;:!?]+$/)?.[0] || "";
     const strippedUrl = trailingPunct ? rawUrl.slice(0, -trailingPunct.length) : rawUrl;
