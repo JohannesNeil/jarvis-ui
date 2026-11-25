@@ -1,0 +1,107 @@
+/* ================= DESIGN TOKENS ================= */
+:root,
+[data-theme="dark"] {
+  --bg-app: #111215;
+  --bg-sidebar: #16181d;
+  --bg-surface: #1c1e24;
+  --bg-surface-hover: #24272f;
+  --bg-input: #1a1c22;
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+
+  --blue-primary: #3b82f6;
+  --blue-hover: #2563eb;
+  --blue-soft: rgba(59, 130, 246, 0.14);
+  --blue-border: rgba(59, 130, 246, 0.32);
+
+  --amber-primary: #f59e0b;
+  --amber-soft: rgba(245, 158, 11, 0.14);
+  --amber-border: rgba(245, 158, 11, 0.32);
+
+  --emerald: #10b981;
+  --emerald-soft: rgba(16, 185, 129, 0.14);
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.14);
+
+  --btn-contrast-bg: #f3f4f6;
+  --btn-contrast-text: #111215;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] {
+  --bg-app: #ffffff;
+  --bg-sidebar: #f5f6f8;
+  --bg-surface: #f8f9fb;
+  --bg-surface-hover: #eef1f5;
+  --bg-input: #f3f4f6;
+  --border-hairline: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+
+  --blue-primary: #2563eb;
+  --blue-hover: #1d4ed8;
+  --blue-soft: #eff6ff;
+  --blue-border: #bfdbfe;
+
+  --amber-primary: #d97706;
+  --amber-soft: #fffbeb;
+  --amber-border: #fde68a;
+
+  --emerald: #059669;
+  --emerald-soft: #ecfdf5;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+
+  --btn-contrast-bg: #111827;
+  --btn-contrast-text: #ffffff;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-float: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hidden { display: none !important; }
+
+/* Lock text selection away from UI chrome so mobile long-press stays clean */
+header,
+#left-sidebar,
+#right-sidebar,
+.ai-msg-head,
+.msg-toolbar,
+.code-header,
+.media-actions,
+.user-attachment-tag,
+.input-dock,
+.chip-strip,
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
