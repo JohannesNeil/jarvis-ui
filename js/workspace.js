@@ -26,12 +26,19 @@ export function renderSchedule() {
     const badgeLabel = item.category || item.tag || "Class";
     const timeLabel = item.date ? `${item.date} • ${item.time}` : item.time;
     const isDone = Boolean(item.done);
+    const isJarvisMarked = isDone && item.completedBy === "jarvis";
+    const checkTitle = isJarvisMarked
+      ? "Marked done by J.A.R.V.I.S. — uncheck and re-check to verify"
+      : isDone
+      ? "Verified by you"
+      : "Mark as accomplished";
+
     const card = document.createElement("div");
     card.className = "hub-card";
     card.innerHTML =
       `<div class="hub-card-top">` +
         `<div class="todo-row" style="flex: 1; min-width: 0;">` +
-          `<input class="todo-check" type="checkbox" ${isDone ? "checked" : ""} />` +
+          `<input class="todo-check ${isJarvisMarked ? "jarvis-checked" : ""}" type="checkbox" ${isDone ? "checked" : ""} title="${checkTitle}" />` +
           `<span class="hub-card-title todo-text ${isDone ? "done" : ""}">${escapeHtml(item.title)}</span>` +
         `</div>` +
         `<span class="badge ${badgeLabel === "Exam" ? "danger" : badgeLabel === "Deadline" ? "amber" : ""}">${escapeHtml(badgeLabel)}</span>` +
@@ -39,6 +46,7 @@ export function renderSchedule() {
       `<div class="kv-row"><span>${escapeHtml(timeLabel)}</span><button class="mini-del" type="button">&times;</button></div>`;
     card.querySelector(".todo-check").addEventListener("change", (e) => {
       item.done = e.target.checked;
+      item.completedBy = e.target.checked ? "user" : null;
       scheduleCloudSync();
       renderSchedule();
     });
@@ -66,17 +74,26 @@ export function renderTodos() {
 
   state.todos.forEach((item) => {
     const prio = (item.priority || "medium").toLowerCase();
+    const isDone = Boolean(item.done);
+    const isJarvisMarked = isDone && item.completedBy === "jarvis";
+    const checkTitle = isJarvisMarked
+      ? "Marked done by J.A.R.V.I.S. — uncheck and re-check to verify"
+      : isDone
+      ? "Verified by you"
+      : "Mark task done";
+
     const card = document.createElement("div");
     card.className = "hub-card";
     card.innerHTML =
       `<div class="todo-row">` +
-        `<input class="todo-check" type="checkbox" ${item.done ? "checked" : ""} />` +
-        `<span class="todo-text ${item.done ? "done" : ""}">${escapeHtml(item.text)}</span>` +
+        `<input class="todo-check ${isJarvisMarked ? "jarvis-checked" : ""}" type="checkbox" ${isDone ? "checked" : ""} title="${checkTitle}" />` +
+        `<span class="todo-text ${isDone ? "done" : ""}">${escapeHtml(item.text)}</span>` +
         `<span class="badge ${prio === "high" ? "amber" : ""}">${escapeHtml(prio)}</span>` +
         `<button class="mini-del" type="button">&times;</button>` +
       `</div>`;
     card.querySelector(".todo-check").addEventListener("change", (e) => {
       item.done = e.target.checked;
+      item.completedBy = e.target.checked ? "user" : null;
       scheduleCloudSync();
       renderTodos();
     });
