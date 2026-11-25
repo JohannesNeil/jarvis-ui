@@ -1,0 +1,487 @@
+import { state, getAuthHeaders, uid } from "./state.js";
+import { renderMarkdown, typesetMath } from "./markdown.js";
+import {
+  $,
+  copyToClipboard,
+  closeLeftSidebar,
+  openSelectTextModal,
+  openConfirmToolModal,
+  closeConfirmToolModal
+} from "./ui.js";
+import { saveLocalSnapshot, scheduleCloudSync } from "./sync.js";
+import { renderSchedule, renderTodos, renderNotes } from "./workspace.js";
+
+let unauthorizedHandler = null;
+
+export function setChatUnauthorizedHandler(fn) {
+  unauthorizedHandler = fn;
+}
+
+export function getActiveConversation() {
+  return state.conversations.find((c) => c.id === state.activeConvId) || null;
+}
+
+export function createNewConversation(initialTitle = "New chat") {
+  const conv = {
+    id: uid(),
+    title: initialTitle,
+    updatedAt: Date.now(),
+    messages: []
+  };
+  state.conversations.unshift(conv);
+  state.activeConvId = conv.id;
+  scheduleCloudSync();
+  renderConversationList();
+  renderActiveChat();
+  return conv;
+}
+
+export function renderConversationList() {
+  const query = $("conv-search").value.trim().toLowerCase();
+  const listEl = $("conversation-list");
+  listEl.innerHTML = "";
+
+  const filtered = state.conversations.filter((c) =>
+    (c.title || "New chat").toLowerCase().includes(query)
+  );
+
+  if (!filtered.length) {
+    listEl.innerHTML = `<div class="empty-hint">No chats yet</div>`;
+    return;
+  }
+
+  filtered.forEach((conv) => {
+    const item = document.createElement("div");
+    item.className = "conv-item" + (conv.id === state.activeConvId ? " active" : "");
+
+    const meta = document.createElement("div");
+    meta.className = "conv-meta";
+    const title = document.createElement("div");
+    title.className = "conv-title";
+    title.textContent = conv.title || "New chat";
+    meta.appendChild(title);
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "conv-del-btn";
+    delBtn.type = "button";
+    delBtn.title = "Delete chat";
+    delBtn.innerHTML = "&times;";
+    delBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      state.conversations = state.conversations.filter((c) => c.id !== conv.id);
+      if (state.activeConvId === conv.id) {
+        state.activeConvId = state.conversations[0]?.id || "";
+      }
+      scheduleCloudSync();
+      renderConversationList();
+      renderActiveChat();
+    });
+
+    item.addEventListener("click", () => {
+      state.activeConvId = conv.id;
+      saveLocalSnapshot();
+      renderConversationList();
+      renderActiveChat();
+      if (window.innerWidth <= 1024) closeLeftSidebar();
+    });
+
+    item.appendChild(meta);
+    item.appendChild(delBtn);
+    listEl.appendChild(item);
+  });
+}
+
+function buildAiMessageElement(msg) {
+  const row = document.createElement("div");
+  row.className = "msg-row ai";
+
+  const head = document.createElement("div");
+  head.className = "ai-msg-head";
+  head.innerHTML =
+    `<div class="ai-avatar">` +
+      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">` +
+        `<polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>` +
+      `</svg>` +
+    `</div>` +
+    `<span>J.A.R.V.I.S.</span>`;
+
+  const content = document.createElement("div");
+  content.className = "ai-content";
+
+  if (msg.pending) {
+    content.innerHTML = `<div class="thinking-wrap"><span></span><span></span><span></span></div>`;
+    row.appendChild(head);
+    row.appendChild(content);
+    return row;
+  }
+
+  const { html, codeBlocks } = renderMarkdown(msg.text || "");
+  content.innerHTML = html;
+  typesetMath(content);
+
+  content.querySelectorAll(".code-wrapper").forEach((wrap) => {
+    const idx = Number(wrap.dataset.codeIdx);
+    const btn = wrap.querySelector(".copy-code-btn");
+    if (btn && codeBlocks[idx]) {
+      btn.addEventListener("click", () => copyToClipboard(codeBlocks[idx].code, btn, "Copy"));
+    }
+  });
+
+  row.appendChild(head);
+  row.appendChild(content);
+
+  if (msg.generatedImage) {
+    const media = document.createElement("div");
+    media.className = "media-card";
+    media.innerHTML =
+      `<img src="${msg.generatedImage}" alt="Generated visual" />` +
+      `<div class="media-actions"><a class="download-media-btn" href="${msg.generatedImage}" download="jarvis-visual.png">Download PNG</a></div>`;
+    row.appendChild(media);
+  } else if (msg.generatedSvg) {
+    const media = document.createElement("div");
+    media.className = "media-card";
+    const svgBlobUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(msg.generatedSvg);
+    media.innerHTML =
+      `${msg.generatedSvg}` +
+      `<div class="media-actions"><a class="download-media-btn" href="${svgBlobUrl}" download="jarvis-diagram.svg">Download SVG</a></div>`;
+    row.appendChild(media);
+  }
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "msg-toolbar";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "msg-action-btn";
+  copyBtn.type = "button";
+  copyBtn.textContent = "Copy";
+  copyBtn.addEventListener("click", () => copyToClipboard(msg.text || "", copyBtn, "Copy"));
+
+  const selectBtn = document.createElement("button");
+  selectBtn.className = "msg-action-btn";
+  selectBtn.type = "button";
+  selectBtn.textContent = "Select text";
+  selectBtn.addEventListener("click", () => openSelectTextModal(msg.text || ""));
+
+  const noteBtn = document.createElement("button");
+  noteBtn.className = "msg-action-btn";
+  noteBtn.type = "button";
+  noteBtn.textContent = "Save to Notes";
+  noteBtn.addEventListener("click", () => {
+    const snippetTitle = (msg.text || "").split("\n")[0].replace(/[#*`$]/g, "").trim().slice(0, 48) || "J.A.R.V.I.S. Note";
+    state.notes.unshift({
+      id: uid(),
+      title: snippetTitle,
+      content: msg.text || "",
+      tag: "Engineering",
+      updatedAt: new Date().toLocaleDateString()
+    });
+    scheduleCloudSync();
+    renderNotes();
+    noteBtn.textContent = "Saved";
+    setTimeout(() => { noteBtn.textContent = "Save to Notes"; }, 1500);
+  });
+
+  toolbar.appendChild(copyBtn);
+  toolbar.appendChild(selectBtn);
+  toolbar.appendChild(noteBtn);
+  row.appendChild(toolbar);
+  return row;
+}
+
+export function renderActiveChat() {
+  const conv = getActiveConversation();
+  const welcome = $("welcome-view");
+  const container = $("messages-container");
+
+  if (!conv || !conv.messages.length) {
+    welcome.classList.remove("hidden");
+    container.classList.add("hidden");
+    container.innerHTML = "";
+    return;
+  }
+
+  welcome.classList.add("hidden");
+  container.classList.remove("hidden");
+  container.innerHTML = "";
+
+  conv.messages.forEach((msg) => {
+    if (msg.role === "user") {
+      const row = document.createElement("div");
+      row.className = "msg-row user";
+
+      if (msg.attachment) {
+        const tag = document.createElement("div");
+        tag.className = "user-attachment-tag";
+        if (msg.attachment.dataUrl && (msg.attachment.mimeType || "").startsWith("image/")) {
+          const img = document.createElement("img");
+          img.src = msg.attachment.dataUrl;
+          img.alt = msg.attachment.name;
+          tag.appendChild(img);
+        } else {
+          tag.textContent = `Attached: ${msg.attachment.name}`;
+        }
+        row.appendChild(tag);
+      }
+
+      if (msg.text) {
+        const bubble = document.createElement("div");
+        bubble.className = "user-bubble";
+        bubble.textContent = msg.text;
+        row.appendChild(bubble);
+      }
+
+      container.appendChild(row);
+    } else {
+      container.appendChild(buildAiMessageElement(msg));
+    }
+  });
+
+  const scrollEl = $("chat-scroll");
+  scrollEl.scrollTop = scrollEl.scrollHeight;
+}
+
+export function autoResizeInput() {
+  const el = $("prompt-input");
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 132) + "px";
+}
+
+export function updateSendButtonState() {
+  const hasText = $("prompt-input").value.trim().length > 0;
+  const hasFile = Boolean(state.pendingAttachment);
+  $("send-btn").disabled = state.isSending || (!hasText && !hasFile);
+}
+
+export function setPendingAttachment(att) {
+  state.pendingAttachment = att;
+  const preview = $("attachment-preview");
+  const thumb = $("preview-thumb");
+  if (!att) {
+    preview.classList.add("hidden");
+    thumb.classList.add("hidden");
+    thumb.src = "";
+    updateSendButtonState();
+    return;
+  }
+  const sizeInfo = att.content
+    ? ` (${att.content.length.toLocaleString()} chars)`
+    : att.slidesText
+    ? ` (${att.slideCount} slides)`
+    : "";
+  $("preview-name").textContent = att.name + sizeInfo;
+  if (att.dataUrl) {
+    thumb.src = att.dataUrl;
+    thumb.classList.remove("hidden");
+  } else {
+    thumb.classList.add("hidden");
+  }
+  preview.classList.remove("hidden");
+  updateSendButtonState();
+}
+
+function buildVaultContext(prompt) {
+  if (!state.vault.length) return "";
+  const terms = prompt.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
+  const scored = state.vault.map((doc) => {
+    const hay = (doc.name + " " + doc.content).toLowerCase();
+    let score = 0;
+    terms.forEach((t) => {
+      if (hay.includes(t)) score += 1;
+    });
+    return { doc, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored
+    .slice(0, 3)
+    .map((s) => `[Vault: ${s.doc.name}]\n${s.doc.content.slice(0, 16000)}`)
+    .join("\n\n");
+}
+
+async function queryWorkerChat(payload) {
+  const base = state.apiUrl.replace(/\/+$/, "");
+  if (!base) {
+    throw new Error("No Backend Server URL configured. Open the sidebar gear icon to set your API URL.");
+  }
+
+  const res = await fetch(`${base}/`, {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    throw new Error("UNAUTHORIZED");
+  }
+  if (!res.ok) {
+    throw new Error(data.error || data.reply || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+export async function sendMessage(overrideText = null) {
+  if (state.isSending) return;
+  const inputEl = $("prompt-input");
+  const text = (overrideText !== null ? overrideText : inputEl.value).trim();
+  const attachment = state.pendingAttachment;
+
+  if (!text && !attachment) return;
+
+  let conv = getActiveConversation();
+  if (!conv) {
+    conv = createNewConversation(text.slice(0, 42) || attachment.name);
+  } else if (!conv.messages.length) {
+    conv.title = text.slice(0, 42) || attachment.name;
+  }
+
+  const geminiHistory = conv.messages
+    .filter((m) => !m.pending && m.text)
+    .slice(-14)
+    .map((m) => ({
+      role: m.role === "ai" ? "model" : "user",
+      parts: [{ text: m.text }]
+    }));
+
+  conv.messages.push({
+    id: uid(),
+    role: "user",
+    text,
+    attachment: attachment
+      ? { name: attachment.name, mimeType: attachment.mimeType || "", dataUrl: attachment.dataUrl || "" }
+      : null
+  });
+
+  const pendingMsg = { id: uid(), role: "ai", text: "", pending: true };
+  conv.messages.push(pendingMsg);
+  conv.updatedAt = Date.now();
+
+  if (overrideText === null) {
+    inputEl.value = "";
+    autoResizeInput();
+  }
+  setPendingAttachment(null);
+  state.isSending = true;
+  updateSendButtonState();
+  saveLocalSnapshot();
+  renderConversationList();
+  renderActiveChat();
+
+  const vaultContext = buildVaultContext(text);
+  const workspaceSnapshot = {
+    schedule: state.schedule,
+    todos: state.todos,
+    notes: state.notes.map((n) => ({ title: n.title, tag: n.tag || "Study" })),
+    vaultCatalog: state.vault.map((v) => ({
+      name: v.name,
+      detail: `${v.content.length.toLocaleString()} chars`
+    }))
+  };
+
+  const cleanAttachment = attachment
+    ? {
+        type: attachment.type,
+        name: attachment.name,
+        mimeType: attachment.mimeType,
+        data: attachment.data,
+        fileUri: attachment.fileUri,
+        content: attachment.content,
+        slideCount: attachment.slideCount,
+        slidesText: attachment.slidesText,
+        slideImages: attachment.slideImages
+      }
+    : null;
+
+  try {
+    const data = await queryWorkerChat({
+      message: text,
+      history: geminiHistory,
+      attachment: cleanAttachment,
+      vaultContext,
+      workspaceSnapshot
+    });
+
+    pendingMsg.pending = false;
+    pendingMsg.text = data.reply || "I didn't receive a valid response, sir.";
+    if (data.generatedImage) pendingMsg.generatedImage = data.generatedImage;
+    if (data.generatedSvg) pendingMsg.generatedSvg = data.generatedSvg;
+
+    if (data.requiresConfirmation && data.pendingTool) {
+      openConfirmToolModal(data.confirmationSummary, data.pendingTool);
+    }
+
+    if (data.updatedWorkspace) {
+      if (Array.isArray(data.updatedWorkspace.schedule)) state.schedule = data.updatedWorkspace.schedule;
+      if (Array.isArray(data.updatedWorkspace.todos)) state.todos = data.updatedWorkspace.todos;
+      if (Array.isArray(data.updatedWorkspace.notes)) state.notes = data.updatedWorkspace.notes;
+      renderSchedule();
+      renderTodos();
+      renderNotes();
+    }
+  } catch (err) {
+    if (err.message === "UNAUTHORIZED") {
+      conv.messages = conv.messages.filter((m) => m.id !== pendingMsg.id);
+      state.isSending = false;
+      if (typeof unauthorizedHandler === "function") {
+        unauthorizedHandler("Session expired. Please sign in with your passcode.");
+      }
+      return;
+    }
+    pendingMsg.pending = false;
+    pendingMsg.text = `Connection notice: ${err.message}`;
+  } finally {
+    state.isSending = false;
+    updateSendButtonState();
+    scheduleCloudSync();
+    renderActiveChat();
+  }
+}
+
+export async function executeConfirmedTool() {
+  const pendingTool = state.pendingToolAction;
+  closeConfirmToolModal();
+  if (!pendingTool) return;
+
+  const conv = getActiveConversation();
+  const base = state.apiUrl.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/confirm-tool`, {
+      method: "POST",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ pendingTool })
+    });
+    if (res.status === 401) {
+      if (typeof unauthorizedHandler === "function") {
+        unauthorizedHandler("Session expired. Please sign in again.");
+      }
+      return;
+    }
+    const data = await res.json();
+    if (data.updatedWorkspace) {
+      if (Array.isArray(data.updatedWorkspace.schedule)) state.schedule = data.updatedWorkspace.schedule;
+      if (Array.isArray(data.updatedWorkspace.todos)) state.todos = data.updatedWorkspace.todos;
+      if (Array.isArray(data.updatedWorkspace.notes)) state.notes = data.updatedWorkspace.notes;
+      saveLocalSnapshot();
+      renderSchedule();
+      renderTodos();
+      renderNotes();
+    }
+    if (conv) {
+      conv.messages.push({
+        id: uid(),
+        role: "ai",
+        text: data.reply || "Confirmed and completed, sir."
+      });
+      scheduleCloudSync();
+      renderActiveChat();
+    }
+  } catch (err) {
+    if (conv) {
+      conv.messages.push({
+        id: uid(),
+        role: "ai",
+        text: `Confirmation error: ${err.message}`
+      });
+      renderActiveChat();
+    }
+  }
+}
