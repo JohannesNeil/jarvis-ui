@@ -330,6 +330,13 @@
   flex-shrink: 0;
 }
 
+.todo-check.jarvis-checked {
+  accent-color: var(--amber-primary);
+  outline: 1.5px solid var(--amber-border);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
 .todo-text {
   flex: 1;
   font-size: 0.82rem;
