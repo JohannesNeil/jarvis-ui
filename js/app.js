@@ -298,14 +298,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     tab.addEventListener("click", () => openCommandHubTab(tab.dataset.tab));
   });
 
-  $("sched-form").addEventListener("submit", (e) => {
+ $("sched-form").addEventListener("submit", (e) => {
     e.preventDefault();
     state.schedule.unshift({
       id: uid(),
       title: $("sched-title").value.trim(),
       date: new Date().toISOString().slice(0, 10),
       time: $("sched-time").value.trim(),
-      category: $("sched-tag").value
+      category: $("sched-tag").value,
+      done: false
     });
     $("sched-title").value = "";
     $("sched-time").value = "";
