@@ -4,15 +4,15 @@ import { $, copyToClipboard } from "./ui.js";
 import { scheduleCloudSync } from "./sync.js";
 
 export function updateCounts() {
-  const s = state.schedule.length;
+  const sOpen = state.schedule.filter((s) => !s.done).length;
   const tOpen = state.todos.filter((t) => !t.done).length;
   const n = state.notes.length;
   const v = state.vault.length;
-  $("nav-sched-count").textContent = s;
+  $("nav-sched-count").textContent = sOpen;
   $("nav-todo-count").textContent = tOpen;
   $("nav-notes-count").textContent = n;
   $("nav-vault-count").textContent = v;
-  $("hub-total-count").textContent = s + tOpen + n + v;
+  $("hub-total-count").textContent = sOpen + tOpen + n + v;
 }
 
 export function renderSchedule() {
@@ -25,14 +25,23 @@ export function renderSchedule() {
   state.schedule.forEach((item) => {
     const badgeLabel = item.category || item.tag || "Class";
     const timeLabel = item.date ? `${item.date} • ${item.time}` : item.time;
+    const isDone = Boolean(item.done);
     const card = document.createElement("div");
     card.className = "hub-card";
     card.innerHTML =
       `<div class="hub-card-top">` +
-        `<div class="hub-card-title">${escapeHtml(item.title)}</div>` +
+        `<div class="todo-row" style="flex: 1; min-width: 0;">` +
+          `<input class="todo-check" type="checkbox" ${isDone ? "checked" : ""} />` +
+          `<span class="hub-card-title todo-text ${isDone ? "done" : ""}">${escapeHtml(item.title)}</span>` +
+        `</div>` +
         `<span class="badge ${badgeLabel === "Exam" ? "danger" : badgeLabel === "Deadline" ? "amber" : ""}">${escapeHtml(badgeLabel)}</span>` +
       `</div>` +
       `<div class="kv-row"><span>${escapeHtml(timeLabel)}</span><button class="mini-del" type="button">&times;</button></div>`;
+    card.querySelector(".todo-check").addEventListener("change", (e) => {
+      item.done = e.target.checked;
+      scheduleCloudSync();
+      renderSchedule();
+    });
     card.querySelector(".mini-del").addEventListener("click", () => {
       state.schedule = state.schedule.filter((x) => x.id !== item.id);
       scheduleCloudSync();
