@@ -6,11 +6,24 @@ export function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function sanitizeSafeUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || "").trim());
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return parsed.href;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function renderMarkdown(raw) {
   const text = String(raw || "").replace(/\r\n/g, "\n");
   const codeBlocks = [];
   const displayMath = [];
   const inlineMath = [];
+  const links = [];
 
   let safeSource = text.replace(/```([a-zA-Z0-9_+#-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const idx = codeBlocks.length;
@@ -28,6 +41,26 @@ export function renderMarkdown(raw) {
     const idx = inlineMath.length;
     inlineMath.push(expr);
     return `${prefix}\u0000MATHINLINE_${idx}\u0000`;
+  });
+
+  // Extract Markdown links [Label](https://...) before inline formatting so underscores/asterisks in URLs stay intact
+  safeSource = safeSource.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, (full, label, rawUrl) => {
+    const cleanHref = sanitizeSafeUrl(rawUrl);
+    if (!cleanHref) return full;
+    const idx = links.length;
+    links.push({ label: label.trim(), href: cleanHref });
+    return `\u0000LINK_${idx}\u0000`;
+  });
+
+  // Extract standalone bare URLs (https://...) outside Markdown links
+  safeSource = safeSource.replace(/(^|[\s(>])(https?:\/\/[^\s)<>"']+)/gi, (full, prefix, rawUrl) => {
+    const trailingPunct = rawUrl.match(/[.,;:!?]+$/)?.[0] || "";
+    const strippedUrl = trailingPunct ? rawUrl.slice(0, -trailingPunct.length) : rawUrl;
+    const cleanHref = sanitizeSafeUrl(strippedUrl);
+    if (!cleanHref) return full;
+    const idx = links.length;
+    links.push({ label: strippedUrl, href: cleanHref });
+    return `${prefix}\u0000LINK_${idx}\u0000${trailingPunct}`;
   });
 
   const lines = safeSource.split("\n");
@@ -55,6 +88,16 @@ export function renderMarkdown(raw) {
     safe = safe.replace(/\*([^*]+)\*/g, "<em>$1</em>");
     safe = safe.replace(/\u0000MATHINLINE_(\d+)\u0000/g, (_, idx) => {
       return `<span class="math-inline">$${escapeHtml(inlineMath[Number(idx)])}$</span>`;
+    });
+    safe = safe.replace(/\u0000LINK_(\d+)\u0000/g, (_, idx) => {
+      const link = links[Number(idx)];
+      if (!link) return "";
+      return (
+        `<a class="chat-link" href="${escapeHtml(link.href)}" ` +
+        `target="_blank" rel="noopener noreferrer" ` +
+        `style="color:#60a5fa;text-decoration:underline;text-underline-offset:3px;word-break:break-word;">` +
+        `${escapeHtml(link.label)}</a>`
+      );
     });
     return safe;
   }
