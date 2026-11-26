@@ -25,6 +25,7 @@ export function createNewConversation(initialTitle = "New chat") {
   const conv = {
     id: uid(),
     title: initialTitle,
+    hasSmartTitle: false,
     updatedAt: Date.now(),
     messages: []
   };
@@ -34,6 +35,14 @@ export function createNewConversation(initialTitle = "New chat") {
   renderConversationList();
   renderActiveChat();
   return conv;
+}
+
+function isWakeOnlyPrompt(text) {
+  const clean = String(text || "").trim();
+  if (!clean || clean.length > 45) return false;
+  return !/report|brief|schedule|task|todo|note|done|finish|complet|submit|mark|check|add|remov|delet|calculat|solve|search|http|who am i|identify|diagram|erd|quiz|remember|time|date|day|today|status|update|next|pending|class|deadline|exam|project|plan|remind|memory|fact|know|help with|explain|write|code|debug|news|headline|latest|current|weather|forecast|image|draw/i.test(
+    clean
+  );
 }
 
 export function renderConversationList() {
@@ -91,6 +100,38 @@ export function renderConversationList() {
   });
 }
 
+function buildCitationsElement(citations) {
+  const valid = (Array.isArray(citations) ? citations : []).filter(
+    (c) => c && typeof c.url === "string" && /^https?:\/\//i.test(c.url)
+  );
+  if (!valid.length) return null;
+
+  const wrap = document.createElement("div");
+  wrap.className = "citations-bar";
+  wrap.style.cssText =
+    "display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center;";
+
+  valid.forEach((c) => {
+    const link = document.createElement("a");
+    link.className = "citation-pill";
+    link.href = c.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.style.cssText =
+      "display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;" +
+      "font-size:12px;text-decoration:none;border:1px solid var(--border-color, rgba(255,255,255,0.14));" +
+      "background:var(--surface-elevated, rgba(255,255,255,0.04));color:var(--accent, #60a5fa);";
+
+    const label = c.source || c.title || "Verified Source";
+    const timeSuffix = c.publishedAt ? ` • ${c.publishedAt}` : "";
+    link.textContent = `${label}${timeSuffix}`;
+    link.title = c.title ? `${c.title} (${c.url})` : c.url;
+    wrap.appendChild(link);
+  });
+
+  return wrap;
+}
+
 function buildAiMessageElement(msg) {
   const row = document.createElement("div");
   row.className = "msg-row ai";
@@ -130,12 +171,18 @@ function buildAiMessageElement(msg) {
   row.appendChild(head);
   row.appendChild(content);
 
+  const citationsEl = buildCitationsElement(msg.citations);
+  if (citationsEl) {
+    row.appendChild(citationsEl);
+  }
+
   if (msg.generatedImage) {
     const media = document.createElement("div");
     media.className = "media-card";
+    const ext = msg.generatedImage.startsWith("data:image/jpeg") ? "jpg" : "png";
     media.innerHTML =
       `<img src="${msg.generatedImage}" alt="Generated visual" />` +
-      `<div class="media-actions"><a class="download-media-btn" href="${msg.generatedImage}" download="jarvis-visual.png">Download PNG</a></div>`;
+      `<div class="media-actions"><a class="download-media-btn" href="${msg.generatedImage}" download="jarvis-visual.${ext}">Download Image</a></div>`;
     row.appendChild(media);
   } else if (msg.generatedSvg) {
     const media = document.createElement("div");
@@ -167,7 +214,9 @@ function buildAiMessageElement(msg) {
   noteBtn.type = "button";
   noteBtn.textContent = "Save to Notes";
   noteBtn.addEventListener("click", () => {
-    const snippetTitle = (msg.text || "").split("\n")[0].replace(/[#*`$]/g, "").trim().slice(0, 48) || "J.A.R.V.I.S. Note";
+    const snippetTitle =
+      (msg.text || "").split("\n")[0].replace(/[#*`$]/g, "").trim().slice(0, 48) ||
+      "J.A.R.V.I.S. Note";
     state.notes.unshift({
       id: uid(),
       title: snippetTitle,
@@ -178,7 +227,9 @@ function buildAiMessageElement(msg) {
     scheduleCloudSync();
     renderNotes();
     noteBtn.textContent = "Saved";
-    setTimeout(() => { noteBtn.textContent = "Save to Notes"; }, 1500);
+    setTimeout(() => {
+      noteBtn.textContent = "Save to Notes";
+    }, 1500);
   });
 
   toolbar.appendChild(copyBtn);
@@ -327,12 +378,23 @@ export async function sendMessage(overrideText = null) {
 
   if (!text && !attachment) return;
 
+  const wakeOnly = !attachment && isWakeOnlyPrompt(text);
+  const placeholderTitle = wakeOnly
+    ? "New chat"
+    : text.slice(0, 42) || attachment?.name || "New chat";
+
   let conv = getActiveConversation();
   if (!conv) {
-    conv = createNewConversation(text.slice(0, 42) || attachment.name);
-  } else if (!conv.messages.length) {
-    conv.title = text.slice(0, 42) || attachment.name;
+    conv = createNewConversation(placeholderTitle);
+  } else if (!conv.messages.length || conv.title === "New chat" || /^jarvis$/i.test((conv.title || "").trim())) {
+    conv.title = placeholderTitle;
   }
+
+  const needsTitle =
+    !conv.hasSmartTitle ||
+    !conv.title ||
+    conv.title === "New chat" ||
+    /^jarvis$/i.test(conv.title.trim());
 
   const geminiHistory = conv.messages
     .filter((m) => !m.pending && m.text)
@@ -397,13 +459,22 @@ export async function sendMessage(overrideText = null) {
       history: geminiHistory,
       attachment: cleanAttachment,
       vaultContext,
-      workspaceSnapshot
+      workspaceSnapshot,
+      needsTitle
     });
 
     pendingMsg.pending = false;
     pendingMsg.text = data.reply || "I didn't receive a valid response, sir.";
+    if (Array.isArray(data.citations) && data.citations.length) {
+      pendingMsg.citations = data.citations;
+    }
     if (data.generatedImage) pendingMsg.generatedImage = data.generatedImage;
     if (data.generatedSvg) pendingMsg.generatedSvg = data.generatedSvg;
+
+    if (data.chatTitle && typeof data.chatTitle === "string") {
+      conv.title = data.chatTitle.trim();
+      conv.hasSmartTitle = true;
+    }
 
     if (data.requiresConfirmation && data.pendingTool) {
       openConfirmToolModal(data.confirmationSummary, data.pendingTool);
@@ -432,6 +503,7 @@ export async function sendMessage(overrideText = null) {
     state.isSending = false;
     updateSendButtonState();
     scheduleCloudSync();
+    renderConversationList();
     renderActiveChat();
   }
 }
