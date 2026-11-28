@@ -21,7 +21,8 @@ import {
   closeSelectTextModal,
   closeConfirmToolModal,
   openServerModal,
-  closeServerModal
+  closeServerModal,
+  updateWelcomeBriefing
 } from "./ui.js";
 import {
   registerSyncCallbacks,
@@ -57,6 +58,7 @@ function renderAllViews() {
   renderNotes();
   renderVault();
   updateCounts();
+  if (typeof updateWelcomeBriefing === "function") updateWelcomeBriefing();
 }
 
 function signOutWithReason(reason = "") {

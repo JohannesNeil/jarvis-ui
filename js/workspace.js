@@ -1,6 +1,6 @@
 import { ASSISTANT_NAME, state } from "./state.js";
 import { escapeHtml } from "./markdown.js";
-import { $, copyToClipboard } from "./ui.js";
+import { $, copyToClipboard, updateWelcomeBriefing } from "./ui.js";
 import { scheduleCloudSync } from "./sync.js";
 
 export function updateCounts() {
@@ -13,6 +13,7 @@ export function updateCounts() {
   $("nav-notes-count").textContent = n;
   $("nav-vault-count").textContent = v;
   $("hub-total-count").textContent = sOpen + tOpen + n + v;
+  if (typeof updateWelcomeBriefing === "function") updateWelcomeBriefing();
 }
 
 export function renderSchedule() {
@@ -57,6 +58,7 @@ export function renderSchedule() {
     });
     list.appendChild(card);
   });
+  if (typeof updateWelcomeBriefing === "function") updateWelcomeBriefing();
 }
 
 export function renderTodos() {

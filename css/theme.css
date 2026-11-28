@@ -398,6 +398,42 @@
   color: var(--text-secondary);
 }
 
+/* Empty State Inside Glassmorphic Briefing */
+.briefing-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  text-align: center;
+  gap: 6px;
+}
+
+.briefing-empty-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(94, 234, 212, 0.1);
+  border: 1px solid rgba(94, 234, 212, 0.2);
+  color: #5eead4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.briefing-empty-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.briefing-empty-sub {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  max-width: 380px;
+}
+
 /* Schedule Items List */
 .briefing-schedule-list {
   display: flex;
