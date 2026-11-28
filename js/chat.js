@@ -6,7 +6,8 @@ import {
   closeLeftSidebar,
   openSelectTextModal,
   openConfirmToolModal,
-  closeConfirmToolModal
+  closeConfirmToolModal,
+  setHudState
 } from "./ui.js";
 import { saveLocalSnapshot, scheduleCloudSync } from "./sync.js";
 import { renderSchedule, renderTodos, renderNotes } from "./workspace.js";
@@ -261,6 +262,7 @@ function buildCitationsElement(citations) {
 function buildAiMessageElement(msg) {
   const row = document.createElement("div");
   row.className = "msg-row ai";
+  row.dataset.msgId = msg.id;
 
   const head = document.createElement("div");
   head.className = "ai-msg-head";
@@ -470,7 +472,7 @@ function buildVaultContext(prompt) {
     .join("\n\n");
 }
 
-async function queryWorkerChat(payload) {
+async function queryWorkerChat(payload, onToken = null) {
   const base = state.apiUrl.replace(/\/+$/, "");
   if (!base) {
     throw new Error("No Backend Server URL configured. Open the sidebar gear icon to set your API URL.");
@@ -478,14 +480,89 @@ async function queryWorkerChat(payload) {
 
   const res = await fetch(`${base}/`, {
     method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(payload)
+    headers: getAuthHeaders({
+      "Content-Type": "application/json",
+      Accept: "text/event-stream, application/json"
+    }),
+    body: JSON.stringify({ ...payload, stream: true })
   });
 
-  const data = await res.json().catch(() => ({}));
   if (res.status === 401) {
     throw new Error("UNAUTHORIZED");
   }
+
+  const contentType = res.headers.get("content-type") || "";
+
+  if (contentType.includes("text/event-stream") && res.body && typeof res.body.getReader === "function") {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finalResponse = null;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(":")) continue;
+          if (trimmed.startsWith("data:")) {
+            const dataStr = trimmed.slice(5).trim();
+            if (dataStr === "[DONE]") break;
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (parsed.error) {
+                throw new Error(parsed.error);
+              }
+              if (parsed.token && typeof onToken === "function") {
+                onToken(parsed.token);
+              }
+              if (parsed.done && parsed.response) {
+                finalResponse = parsed.response;
+              }
+            } catch (err) {
+              if (err.message && err.message !== "Unexpected end of JSON input") {
+                if (err.message.startsWith("All configured AI providers failed") || !err.message.includes("JSON")) {
+                  throw err;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (buffer.trim().startsWith("data:")) {
+        const dataStr = buffer.trim().slice(5).trim();
+        if (dataStr !== "[DONE]") {
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.token && typeof onToken === "function") {
+              onToken(parsed.token);
+            }
+            if (parsed.done && parsed.response) {
+              finalResponse = parsed.response;
+            }
+          } catch {}
+        }
+      }
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {}
+    }
+
+    if (finalResponse) {
+      return finalResponse;
+    }
+  }
+
+  // Non-streaming fallback (or if server returned JSON)
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.error || data.reply || `HTTP ${res.status}`);
   }
@@ -575,18 +652,58 @@ export async function sendMessage(overrideText = null) {
       }
     : null;
 
+  setHudState("thinking");
+  let streamStarted = false;
+  let rafId = null;
+
+  const flushTokenRender = () => {
+    rafId = null;
+    const container = $("messages-container");
+    if (!container) return;
+    const row = container.querySelector(`.msg-row.ai[data-msg-id="${pendingMsg.id}"]`);
+    if (!row) return;
+    const content = row.querySelector(".ai-content");
+    if (!content) return;
+    const { html } = renderMarkdown(pendingMsg.text);
+    content.innerHTML = html;
+    const scrollEl = $("chat-scroll");
+    if (scrollEl) {
+      scrollEl.scrollTop = scrollEl.scrollHeight;
+    }
+  };
+
+  const handleStreamToken = (token) => {
+    if (!streamStarted) {
+      streamStarted = true;
+      pendingMsg.pending = false;
+      setHudState("responding");
+    }
+    pendingMsg.text += token;
+    if (!rafId) {
+      rafId = requestAnimationFrame(flushTokenRender);
+    }
+  };
+
   try {
-    const data = await queryWorkerChat({
-      message: text,
-      history: geminiHistory,
-      attachment: cleanAttachment,
-      vaultContext,
-      workspaceSnapshot,
-      needsTitle
-    });
+    const data = await queryWorkerChat(
+      {
+        message: text,
+        history: geminiHistory,
+        attachment: cleanAttachment,
+        vaultContext,
+        workspaceSnapshot,
+        needsTitle
+      },
+      handleStreamToken
+    );
+
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
 
     pendingMsg.pending = false;
-    pendingMsg.text = data.reply || "I didn't receive a valid response, sir.";
+    pendingMsg.text = data.reply || pendingMsg.text || "I didn't receive a valid response, sir.";
     if (Array.isArray(data.citations) && data.citations.length) {
       pendingMsg.citations = data.citations;
     }
@@ -623,6 +740,11 @@ export async function sendMessage(overrideText = null) {
     pendingMsg.pending = false;
     pendingMsg.text = `Connection notice: ${err.message}`;
   } finally {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    setHudState("idle");
     state.isSending = false;
     updateSendButtonState();
     scheduleCloudSync();
