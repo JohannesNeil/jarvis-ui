@@ -825,3 +825,69 @@ code[class*="language-"] {
     display: none; /* Keep clean on small mobile viewports */
   }
 }
+
+
+/* -----------------------------------------------------------------------------
+   BATCH 6A — Vault Citation Snippets (Study Vault Semantic Search)
+   Clean inline citations surfaced from semantic chunk relevance search
+   ----------------------------------------------------------------------------- */
+.vault-citations-panel {
+  margin: 10px 0 2px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.vault-citations-label {
+  padding: 7px 12px 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--bg-sidebar);
+}
+
+.vault-citation-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-hairline);
+  transition: background 0.12s ease;
+}
+
+.vault-citation-row:last-child {
+  border-bottom: none;
+}
+
+.vault-citation-row:hover {
+  background: var(--bg-surface-hover);
+}
+
+.vault-citation-doc {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--blue-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vault-citation-snippet {
+  font-size: 0.80rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vault-citation-score {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}

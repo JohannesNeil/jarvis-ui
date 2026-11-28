@@ -1,7 +1,10 @@
-import { ASSISTANT_NAME, state } from "./state.js";
+import { ASSISTANT_NAME, state, uid } from "./state.js";
 import { escapeHtml } from "./markdown.js";
 import { $, copyToClipboard, updateWelcomeBriefing } from "./ui.js";
 import { scheduleCloudSync } from "./sync.js";
+import { vaultDelete, vaultList, vaultUpsert, vaultSearch, renderVaultCitations } from "./vault-api.js";
+
+export { vaultList, vaultUpsert, vaultDelete, vaultSearch, renderVaultCitations };
 
 export function updateCounts() {
   const sOpen = state.schedule.filter((s) => !s.done).length;
@@ -148,16 +151,21 @@ export function renderVault() {
   state.vault.forEach((doc) => {
     const card = document.createElement("div");
     card.className = "hub-card";
+    const chunkInfo = doc.chunkCount ? ` · ${doc.chunkCount} sections` : "";
     card.innerHTML =
       `<div class="hub-card-top">` +
         `<div class="hub-card-title">${escapeHtml(doc.name)}</div>` +
         `<span class="badge">Indexed</span>` +
       `</div>` +
-      `<div class="kv-row"><span>${doc.content.length.toLocaleString()} chars</span><button class="mini-del" type="button">&times;</button></div>`;
-    card.querySelector(".mini-del").addEventListener("click", () => {
+      `<div class="kv-row"><span>${doc.content ? doc.content.length.toLocaleString() : (doc.size || 0).toLocaleString()} chars${chunkInfo}</span><button class="mini-del" type="button">&times;</button></div>`;
+    card.querySelector(".mini-del").addEventListener("click", async () => {
       state.vault = state.vault.filter((x) => x.id !== doc.id);
       scheduleCloudSync();
       renderVault();
+      // Also delete from GitHub vault storage if we have an id
+      if (doc.id) {
+        try { await vaultDelete(doc.id); } catch { /* non-fatal */ }
+      }
     });
     list.appendChild(card);
   });

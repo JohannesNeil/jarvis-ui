@@ -139,9 +139,11 @@ export function closeServerModal() {
 
 
 /* =============================================================================
-   BATCH 5 - [12] 3D HOLLOW POINT-CLOUD SPHERE HUD CORE
-   Crisp hollow 3D shell · slow breathing · swipe/drag rotation · voice sync
-   Mobile-reliable, zero clipping, no shadowBlur, no per-particle gradients
+   BATCH 6A - [13] CRISP 3D HOLLOW SPARK SPHERE HUD CORE
+   Sharp micro-spark / radial-dash aesthetic · strict hollow shell
+   Bidirectional breathing · swipe/drag rotation · voice sync
+   NO blurry glow blobs · NO Fibonacci grid dots · NO shape morphing
+   Mobile-reliable, zero clipping, transparent unclipped container
    ============================================================================= */
 
 // ---- Core state ----
@@ -165,219 +167,222 @@ let _syllableIdx  = 0;
 let _syllableStep = 0;
 
 // ---- Rotation state ----
-// Slow baseline: ~0.18 rad/s Y, ~0.07 rad/s X at 60fps → ~0.003 rad/frame Y
 let _rotX = 0.32;   // initial tilt
 let _rotY = 0.0;
 let _velX = 0.0;
-let _velY = 0.003;  // gentle baseline Y drift
+let _velY = 0.003;  // gentle baseline Y drift ~0.18 rad/s at 60fps
 let _dragActive = false;
 let _dragLastX  = 0;
 let _dragLastY  = 0;
 let _dragDeltaX = 0;
 let _dragDeltaY = 0;
-let _lastPointerType = "";  // 'mouse' | 'touch' | 'pen'
+let _lastPointerType = "";
 
-// ---- Breathing / hollow shell radius ----
-// Radius breathes between R_MAX (68 px) and R_MIN (44 px) over ~6s
-const HUD_R_MAX = 68;  // outer shell radius at exhale
-const HUD_R_MIN = 44;  // inner hollow radius at inhale — NEVER collapses to 0
-const HUD_BREATH_PERIOD = 6000; // ms per full breath cycle
-let _breathMs = 0; // accumulates real milliseconds
-
-// ---- Shape morph ----
-// 4 clean hollow 3D formations, morph every 9 s
-const SHAPES = ["fibonacci", "torus", "helix", "wave"];
-const SHAPE_DURATION_MS = 9000;
-let _shapeIdx    = 0;
-let _shapeMorphT = 0;
-let _shapeLastMs = 0;
+// ---- Hollow shell geometry ----
+// STRICT hollow: inner void ~30px, outer boundary ~82px
+// Particles breathe bidirectionally between inner and outer radii
+const HUD_R_INNER = 30;   // inner hollow boundary — particles NEVER go inside
+const HUD_R_OUTER = 82;   // outer shell boundary
+const HUD_R_MID   = (HUD_R_INNER + HUD_R_OUTER) * 0.5; // ~56px rest radius
+const HUD_BREATH_PERIOD = 7000; // ms per full breath cycle (slow, meditative)
+let _breathMs = 0;
 
 /* -------------------------------------------------------------------------- */
-/* Shape generators — all return unit-sphere normalized coords (‖v‖ ≈ 1)     */
+/* Fibonacci sphere — evenly distributes N points on unit sphere surface      */
+/* Ensures strict angular separation so sparks NEVER clump                    */
 /* -------------------------------------------------------------------------- */
-
-// Hollow Fibonacci sphere — evenly distributed surface points
-function shapeFibSphere(i, n) {
+function fibSpherePoint(i, n) {
   const golden = Math.PI * (3 - Math.sqrt(5));
   const y  = 1 - (i / (n - 1)) * 2;
   const r  = Math.sqrt(Math.max(0, 1 - y * y));
   const th = golden * i;
-  return { tx: Math.cos(th) * r, ty: y, tz: Math.sin(th) * r };
-}
-
-// Hollow Tilted Torus — tube points on a large ring, tilted 25°
-function shapeTorus(i, n) {
-  const ang     = (i / n) * Math.PI * 2;
-  const tubeAng = (i * 6.5) % (Math.PI * 2);
-  const bigR = 0.62, smallR = 0.30;
-  const tilt = Math.PI / 7; // 25.7° tilt
-  const x0 = (bigR + smallR * Math.cos(tubeAng)) * Math.cos(ang);
-  const y0 = smallR * Math.sin(tubeAng);
-  const z0 = (bigR + smallR * Math.cos(tubeAng)) * Math.sin(ang);
-  // Tilt around X-axis
-  return {
-    tx: x0,
-    ty: y0 * Math.cos(tilt) - z0 * Math.sin(tilt),
-    tz: y0 * Math.sin(tilt) + z0 * Math.cos(tilt)
-  };
-}
-
-// Double Helix Shell — two strands spiralling on a cylinder surface
-function shapeHelix(i, n) {
-  const t      = (i / n) * Math.PI * 5;
-  const strand = (i % 2 === 0) ? 0 : Math.PI;
-  const helR   = 0.55;
-  const len    = (i / n) * 2 - 1; // -1 → 1 along Y
-  // Push each point to unit sphere: normalize (helR * cos, len, helR * sin)
-  const mag = Math.sqrt(helR * helR + len * len);
-  const sc  = mag > 0 ? (1 / mag) : 1;
-  return {
-    tx: helR * Math.cos(t + strand) * sc,
-    ty: len * sc,
-    tz: helR * Math.sin(t + strand) * sc
-  };
-}
-
-// Harmonic Wave Shell — sinusoidal lattice projected onto the sphere surface
-function shapeWave(i, n) {
-  const cols = 15;
-  const col  = i % cols;
-  const row  = Math.floor(i / cols);
-  const rows = Math.ceil(n / cols);
-  const u    = (col / (cols - 1)) * 2 - 1;  // -1 → 1
-  const v    = (row / Math.max(rows - 1, 1)) * 2 - 1;
-  const amp  = 0.28;
-  const wy   = amp * Math.sin(u * Math.PI * 2.2 + v * Math.PI * 1.4);
-  // Map (u, wy, v) onto unit sphere surface via normalization
-  const mag  = Math.sqrt(u * u + wy * wy + v * v);
-  const sc   = mag > 0.01 ? (1 / mag) : 1;
-  return { tx: u * sc, ty: wy * sc, tz: v * sc };
-}
-
-function getShapeTarget(shapeKey, i, n) {
-  switch (shapeKey) {
-    case "torus": return shapeTorus(i, n);
-    case "helix": return shapeHelix(i, n);
-    case "wave":  return shapeWave(i, n);
-    default:      return shapeFibSphere(i, n);
-  }
+  return { nx: Math.cos(th) * r, ny: y, nz: Math.sin(th) * r };
 }
 
 /* -------------------------------------------------------------------------- */
-/* Particle                                                                    */
+/* Spark / Dash Particle                                                       */
 /* -------------------------------------------------------------------------- */
-class HudParticle {
+class HudSpark {
   constructor(i, n) {
     this.i = i;
     this.n = n;
-    // Start on hollow sphere at mid-radius
-    const s = shapeFibSphere(i, n);
-    const r0 = (HUD_R_MAX + HUD_R_MIN) * 0.5;
-    this.x = s.tx * r0;
-    this.y = s.ty * r0;
-    this.z = s.tz * r0;
-    // Spring velocities
-    this.vx = 0; this.vy = 0; this.vz = 0;
-    // Per-particle variety
-    this.driftPhase = Math.random() * Math.PI * 2;
-    this.driftAmp   = 0.6 + Math.random() * 0.9;   // subtle organic float
-    this.driftFreq  = 0.00045 + Math.random() * 0.00035;
-    // Size: 1.1px–2.3px range; depth-scaled at projection
-    this.baseRadius  = 1.1 + Math.random() * 1.2;
-    this.colorPhase  = Math.random();               // 0–1 palette position
+
+    // Surface normal from Fibonacci — permanent angular address
+    const s = fibSpherePoint(i, n);
+    this.nx = s.nx; this.ny = s.ny; this.nz = s.nz;
+
+    // Per-particle breathing phase offset for bidirectional wave
+    // Phase spread across all particles to create inward & outward synchronized waves
+    this.breathOffset = (i / n) * Math.PI * 2;  // full 0→2π spread
+    this.breathAmpMod = 0.75 + Math.random() * 0.5; // subtle per-particle amplitude variety
+
+    // Slight position jitter on the sphere surface (stays on shell)
+    this.jitterAmp  = 0.5 + Math.random() * 1.0;
+    this.jitterFreq = 0.00032 + Math.random() * 0.00022;
+    this.jitterPhase = Math.random() * Math.PI * 2;
+
+    // 3D world-space position (derived each frame from breathing radius * normal)
+    this.x = s.nx * HUD_R_MID;
+    this.y = s.ny * HUD_R_MID;
+    this.z = s.nz * HUD_R_MID;
+
+    // Spark appearance — 1px–1.8px sharp luminous sparks
+    this.baseLen    = 1.0 + Math.random() * 0.8;  // dash half-length in px
+    this.baseRadius = 0.5 + Math.random() * 0.65;  // dot radius in px
+    this.isStreak   = Math.random() < 0.42;  // 42% are radial streaks/dashes, rest are dots
+
+    // Color palette position (0–1) — varies slowly per particle
+    this.colorPhase  = Math.random();
+    this.colorDrift  = 0.0004 + Math.random() * 0.0003; // very slow color drift
+
+    // Sparkle / scintillation
     this.sparkPhase  = Math.random() * Math.PI * 2;
-    this.sparkSpeed  = 0.025 + Math.random() * 0.03; // slower sparkle
-    // Projected
+    this.sparkSpeed  = 0.018 + Math.random() * 0.025;
+
+    // Projected screen coords
     this.pz       = 0;
     this.screenX  = 0;
     this.screenY  = 0;
+    this.screenDX = 0; // projected radial direction X (for streak orientation)
+    this.screenDY = 0;
     this.screenAlpha = 1;
     this.screenR  = 1;
+    this.screenLen = 1;
   }
 
-  // Low-stiffness spring toward shell target; dt is real seconds clamped to 50ms
-  applySpring(tx, ty, tz, stiffness, damping, dt) {
-    this.vx += (tx - this.x) * stiffness * dt * 60;
-    this.vy += (ty - this.y) * stiffness * dt * 60;
-    this.vz += (tz - this.z) * stiffness * dt * 60;
-    const damp = Math.pow(damping, dt * 60);
-    this.vx *= damp; this.vy *= damp; this.vz *= damp;
-    this.x += this.vx * dt * 60;
-    this.y += this.vy * dt * 60;
-    this.z += this.vz * dt * 60;
+  /**
+   * Updates 3D position based on breathing radius + jitter.
+   * Bidirectional breathing: each particle oscillates between R_INNER and R_OUTER
+   * in a wave keyed to its breathOffset, so inward & outward waves are synchronized.
+   */
+  updatePosition(breathMs, voiceLevel, state) {
+    // Global breath cycle 0→1
+    const globalCycle = (breathMs % HUD_BREATH_PERIOD) / HUD_BREATH_PERIOD;
+    // Bidirectional wave: combine global cycle with per-particle offset
+    const waveAngle = globalCycle * Math.PI * 2 + this.breathOffset;
+    const breathT = 0.5 + 0.5 * Math.sin(waveAngle); // 0=inner, 1=outer
+
+    // State-dependent amplitude
+    let ampScale = this.breathAmpMod;
+    if (state === "thinking") {
+      // Tighter, faster oscillation during thinking — shell compresses
+      ampScale *= 0.55;
+    } else if (state === "responding") {
+      ampScale *= 0.85;
+    }
+
+    // Shell radius for this particle this frame
+    let r = HUD_R_INNER + (HUD_R_OUTER - HUD_R_INNER) * breathT * ampScale;
+    // Voice adds subtle outward push (never blows out past outer boundary)
+    r += voiceLevel * 6;
+    // Hard clamp — NEVER enter the hollow inner void or exceed outer shell
+    r = Math.max(HUD_R_INNER, Math.min(HUD_R_OUTER, r));
+
+    // Apply tiny surface-tangent jitter (doesn't change depth — stays on shell)
+    // Jitter displaces along nx/ny/nz directions but is then projected onto the shell
+    const j = this.jitterAmp * Math.sin(breathMs * this.jitterFreq + this.jitterPhase);
+
+    this.x = this.nx * r + j * 0.08;
+    this.y = this.ny * r + j * 0.12;
+    this.z = this.nz * r + j * 0.06;
+
+    this.colorPhase = (this.colorPhase + this.colorDrift) % 1;
+    this.sparkPhase += this.sparkSpeed;
   }
 
-  project(rotX, rotY, fov, cx, cy, timestamp) {
+  /**
+   * Projects 3D spark to 2D screen space.
+   * Also computes the projected radial direction for streak orientation.
+   */
+  project(rotX, rotY, fov, cx, cy) {
     const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
     const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-    // Organic micro-drift (very small — just a whisper of life)
-    const drift = this.driftAmp * Math.sin(timestamp * this.driftFreq + this.driftPhase);
-    let px = this.x + drift * 0.15;
-    let py = this.y + drift * 0.20;
-    let pz = this.z + drift * 0.10;
-    // Y rotation
-    const rx1 = px * cosY - pz * sinY;
-    const rz1 = px * sinY + pz * cosY;
-    // X rotation
-    const ry2 = py * cosX - rz1 * sinX;
-    const rz2 = py * sinX + rz1 * cosX;
-    // Perspective projection
+
+    // Rotate position
+    const rx1 = this.x * cosY - this.z * sinY;
+    const rz1 = this.x * sinY + this.z * cosY;
+    const ry2 = this.y * cosX - rz1 * sinX;
+    const rz2 = this.y * sinX + rz1 * cosX;
     this.pz = rz2;
-    const perspScale = fov / (fov + rz2 + HUD_R_MAX);
+
+    const perspScale = fov / (fov + rz2 + HUD_R_OUTER);
     this.screenX = cx + rx1 * perspScale;
     this.screenY = cy + ry2 * perspScale;
-    // Dot radius: 1.1–2.3px by depth
-    const depthT = (rz2 + HUD_R_MAX) / (HUD_R_MAX * 2);  // 0=far, 1=near
-    this.screenR = Math.max(0.5, this.baseRadius * (0.70 + 0.30 * depthT) * perspScale * 2.0);
-    // Alpha: near = bright, far = dim (never zero — shell always visible)
-    this.screenAlpha = 0.30 + 0.70 * depthT;
-    this.sparkPhase += this.sparkSpeed;
+
+    // Projected radial direction (from center → particle, in screen space)
+    const dx = this.screenX - cx;
+    const dy = this.screenY - cy;
+    const dm = Math.sqrt(dx * dx + dy * dy) || 1;
+    this.screenDX = dx / dm;
+    this.screenDY = dy / dm;
+
+    const depthT = (rz2 + HUD_R_OUTER) / (HUD_R_OUTER * 2); // 0=far,1=near
+    // Depth-scaled size: crisp 1px–1.8px sparks
+    this.screenR   = Math.max(0.4, this.baseRadius * (0.65 + 0.35 * depthT) * perspScale * 2.2);
+    this.screenLen = Math.max(1.0, this.baseLen   * (0.70 + 0.30 * depthT) * perspScale * 3.5);
+    // Alpha: near = bright, far = dim — never fully invisible
+    this.screenAlpha = 0.28 + 0.72 * depthT;
   }
 }
 
 let hudParticles = [];
 
 /* -------------------------------------------------------------------------- */
-/* Dual-theme palette                                                          */
+/* Dual-theme spark palette                                                    */
+/* Dark: cyan → electric blue → violet-magenta → warm coral-orange            */
+/* Light: deep teal → cobalt → indigo → coral (high-contrast)                */
 /* -------------------------------------------------------------------------- */
-function getParticleColor(t, isLightMode) {
+function getSparkColor(t, isLightMode) {
   const p = Math.max(0, Math.min(1, t));
   let r, g, b;
   if (isLightMode) {
-    // Deep teal → cobalt → indigo → slate-violet
-    if (p < 0.33) {
-      const u = p / 0.33;
-      r = Math.round(10  + 19  * u);
-      g = Math.round(130 - 70  * u);
-      b = Math.round(140 + 90  * u);
-    } else if (p < 0.66) {
-      const u = (p - 0.33) / 0.33;
-      r = Math.round(29  + 71  * u);
-      g = Math.round(60  - 32  * u);
-      b = Math.round(230 - 50  * u);
+    // High-contrast: deep teal → cobalt → indigo → coral
+    if (p < 0.25) {
+      const u = p / 0.25;
+      r = Math.round(8   + 14  * u);
+      g = Math.round(128 - 60  * u);
+      b = Math.round(138 + 80  * u);
+    } else if (p < 0.5) {
+      const u = (p - 0.25) / 0.25;
+      r = Math.round(22  + 56  * u);
+      g = Math.round(68  - 38  * u);
+      b = Math.round(218 - 30  * u);
+    } else if (p < 0.78) {
+      const u = (p - 0.5) / 0.28;
+      r = Math.round(78  + 60  * u);
+      g = Math.round(30  + 10  * u);
+      b = Math.round(188 - 40  * u);
     } else {
-      const u = (p - 0.66) / 0.34;
-      r = Math.round(100 + 30  * u);
-      g = Math.round(28  + 10  * u);
-      b = Math.round(180 - 40  * u);
+      // coral-orange
+      const u = (p - 0.78) / 0.22;
+      r = Math.round(138 + 80  * u);
+      g = Math.round(40  + 48  * u);
+      b = Math.round(148 - 100 * u);
     }
   } else {
-    // Cyan/white → electric blue → soft violet
-    if (p < 0.30) {
-      const u = p / 0.30;
-      r = Math.round(210 - 150 * u);
-      g = Math.round(248 - 60  * u);
+    // Dark: cyan/white → electric blue → violet-magenta → coral-orange
+    if (p < 0.28) {
+      const u = p / 0.28;
+      r = Math.round(190 - 100 * u);
+      g = Math.round(248 - 50  * u);
       b = 255;
-    } else if (p < 0.65) {
-      const u = (p - 0.30) / 0.35;
-      r = Math.round(60  + 100 * u);
-      g = Math.round(188 - 100 * u);
-      b = Math.round(255 - 30  * u);
+    } else if (p < 0.56) {
+      const u = (p - 0.28) / 0.28;
+      r = Math.round(90  + 90  * u);
+      g = Math.round(198 - 128 * u);
+      b = Math.round(255 - 20  * u);
+    } else if (p < 0.80) {
+      // violet-magenta
+      const u = (p - 0.56) / 0.24;
+      r = Math.round(180 + 48  * u);
+      g = Math.round(70  - 20  * u);
+      b = Math.round(235 - 50  * u);
     } else {
-      const u = (p - 0.65) / 0.35;
-      r = Math.round(160 + 40  * u);
-      g = Math.round(88  + 20  * u);
-      b = Math.round(225 - 20  * u);
+      // warm coral-orange
+      const u = (p - 0.80) / 0.20;
+      r = Math.round(228 + 20  * u);
+      g = Math.round(50  + 68  * u);
+      b = Math.round(185 - 148 * u);
     }
   }
   return {
@@ -388,7 +393,7 @@ function getParticleColor(t, isLightMode) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Render                                                                      */
+/* Render — crisp sparks & radial dashes, NO blurry glow blobs                */
 /* -------------------------------------------------------------------------- */
 let _lastFrameTime = 0;
 
@@ -401,10 +406,8 @@ function renderHudFrame(timestamp) {
   const n = hudParticles.length;
   if (n === 0) return;
 
-  // Real delta-time, clamped to 50ms (20fps floor) to avoid jumps on tab-blur wakeup
   const dtMs = _lastFrameTime > 0 ? Math.min(timestamp - _lastFrameTime, 50) : 16.67;
   _lastFrameTime = timestamp;
-  const dt = dtMs / 1000; // seconds
 
   const isLight = state.theme === "light";
   const cx = HUD_W * 0.5;
@@ -431,110 +434,71 @@ function renderHudFrame(timestamp) {
     if (!_hudAudioAnalyser) _hudVoiceLevel = _syllableEnv;
   }
 
-  // ---- Breathing hollow shell radius (~6s cycle) ----
+  // ---- Accumulate breath timer ----
   _breathMs += dtMs;
-  const breathCycle = (_breathMs % HUD_BREATH_PERIOD) / HUD_BREATH_PERIOD; // 0→1
-  // Smooth sine: 0=exhale(R_MAX), 0.5=inhale(R_MIN)
-  const breathT = 0.5 - 0.5 * Math.cos(breathCycle * Math.PI * 2);
 
-  // 'thinking' tightens shell slightly inward; voice adds subtle ripple outward
-  let shellR;
-  if (currentHudState === "thinking") {
-    // Tighter shell: oscillates between R_MIN+4 and R_MAX-10
-    shellR = (HUD_R_MIN + 4) + ((HUD_R_MAX - 10) - (HUD_R_MIN + 4)) * (1 - breathT * 0.6);
-  } else {
-    shellR = HUD_R_MIN + (HUD_R_MAX - HUD_R_MIN) * (1 - breathT);
-  }
-  // Voice ripple: subtle outward push on shell (never blows out)
-  shellR += _hudVoiceLevel * 7;
-  // Hard clamp — shell NEVER collapses to or past hollow center
-  shellR = Math.max(HUD_R_MIN, Math.min(HUD_R_MAX + 8, shellR));
-
-  // ---- Shape morphing ----
-  const shapeElapsed = timestamp - _shapeLastMs;
-  _shapeMorphT = Math.min(1, shapeElapsed / SHAPE_DURATION_MS);
-  if (_shapeMorphT >= 1) {
-    _shapeIdx    = (_shapeIdx + 1) % SHAPES.length;
-    _shapeLastMs = timestamp;
-    _shapeMorphT = 0;
-  }
-  const morphSmooth = _shapeMorphT * _shapeMorphT * (3 - 2 * _shapeMorphT); // smoothstep
-  const curShape  = SHAPES[_shapeIdx];
-  const nextShape = SHAPES[(_shapeIdx + 1) % SHAPES.length];
-
-  // ---- State-driven spring params ----
-  let stiffness, damping;
-  if (currentHudState === "thinking") {
-    stiffness = 0.028; damping = 0.78;
-  } else if (currentHudState === "responding") {
-    stiffness = 0.018; damping = 0.82;
-  } else {
-    stiffness = 0.012; damping = 0.86;
-  }
-
-  // ---- Slow baseline rotation with delta-time ----
+  // ---- Slow baseline rotation ----
   if (!_dragActive) {
-    const baseVY = 0.003; // ~0.18 rad/s at 60fps
-    const baseVX = 0.0012;
-    // Inertia decay after drag, then settle to baseline
-    _velY += (baseVY - _velY) * 0.025;
+    _velY += (0.003  - _velY) * 0.025;  // baseline ~0.18 rad/s Y
     _velX += (0      - _velX) * 0.030;
-    // Gentle X tilt correction
-    _rotX += (_rotX < 0.32 ? 0.32 - _rotX : 0) * 0.004;
+    _rotX += (_rotX < 0.32 ? (0.32 - _rotX) * 0.004 : 0);
     _rotY += _velY;
     _rotX += _velX;
   }
 
-  // Perspective FOV — fixed, comfortable depth
   const fov = 240;
 
-  // ---- Update particles — spring toward hollow shell surface ----
+  // ---- Update sparks — position from breathing radius * surface normal ----
   for (let i = 0; i < n; i++) {
-    const p   = hudParticles[i];
-    const cur = getShapeTarget(curShape,  i, n);
-    const nxt = getShapeTarget(nextShape, i, n);
-    // Blend shape targets (unit sphere coords) then scale to current shell radius
-    const ux = cur.tx * (1 - morphSmooth) + nxt.tx * morphSmooth;
-    const uy = cur.ty * (1 - morphSmooth) + nxt.ty * morphSmooth;
-    const uz = cur.tz * (1 - morphSmooth) + nxt.tz * morphSmooth;
-    // Normalize to stay exactly on the shell surface
-    const umag = Math.sqrt(ux * ux + uy * uy + uz * uz);
-    const us   = umag > 0.001 ? (shellR / umag) : shellR;
-    p.applySpring(ux * us, uy * us, uz * us, stiffness, damping, dt);
-    p.project(_rotX, _rotY, fov, cx, cy, timestamp);
+    hudParticles[i].updatePosition(_breathMs, _hudVoiceLevel, currentHudState);
+    hudParticles[i].project(_rotX, _rotY, fov, cx, cy);
   }
 
   // ---- Depth sort back-to-front ----
   hudParticles.sort((a, b) => a.pz - b.pz);
 
-  // ---- Draw — crisp dots only, no shadowBlur, no per-particle radial gradients ----
+  // ---- Draw — crisp sparks & radial dashes, NO shadowBlur ----
   ctx.clearRect(0, 0, HUD_W, HUD_H);
 
-  // Dark mode: 'lighter' blend gives natural additive glow at dot intersections
-  // Light mode: 'source-over' keeps dots crisp and opaque on white background
+  // Dark: 'lighter' additive blend → luminous overlaps without glow blobs
+  // Light: 'source-over' → crisp opaque dots on cream/white background
   ctx.globalCompositeOperation = isLight ? "source-over" : "lighter";
 
   for (const p of hudParticles) {
-    const sparkle = 0.78 + 0.22 * Math.sin(p.sparkPhase);
-    const alpha   = p.screenAlpha * sparkle * (isLight ? 0.88 : 0.82);
-    if (alpha < 0.04) continue;
+    const sparkle = 0.72 + 0.28 * Math.sin(p.sparkPhase);
+    const alpha   = p.screenAlpha * sparkle * (isLight ? 0.90 : 0.78);
+    if (alpha < 0.035) continue;
 
-    const { r, g, b } = getParticleColor(p.colorPhase, isLight);
-    const sz = Math.max(0.5, p.screenR);
+    const { r, g, b } = getSparkColor(p.colorPhase, isLight);
 
-    // Dark mode: tiny halo ring (pure fill, no shadowBlur) for depth perception
-    if (!isLight) {
+    if (p.isStreak) {
+      // Radial dash / micro-spark streak — sharp 1px line from center outward
+      const halfLen = Math.max(0.8, p.screenLen * 0.5);
+      const sx = p.screenX - p.screenDX * halfLen;
+      const sy = p.screenY - p.screenDY * halfLen;
+      const ex = p.screenX + p.screenDX * halfLen;
+      const ey = p.screenY + p.screenDY * halfLen;
+
       ctx.beginPath();
-      ctx.arc(p.screenX, p.screenY, sz * 1.9, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${r},${g},${b},${(alpha * 0.14).toFixed(3)})`;
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      // Line width: 1px–1.8px, depth-modulated
+      ctx.lineWidth = Math.max(0.6, p.screenR * 1.2);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+      ctx.stroke();
+
+      // Bright core dot at center of streak
+      ctx.beginPath();
+      ctx.arc(p.screenX, p.screenY, Math.max(0.4, p.screenR * 0.65), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${(alpha * 1.2).toFixed(3)})`;
+      ctx.fill();
+    } else {
+      // Sharp point-spark — crisp filled dot, no halo/blur
+      ctx.beginPath();
+      ctx.arc(p.screenX, p.screenY, Math.max(0.4, p.screenR), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
       ctx.fill();
     }
-
-    // Core dot — sharp, crisp
-    ctx.beginPath();
-    ctx.arc(p.screenX, p.screenY, sz, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
-    ctx.fill();
   }
 
   ctx.globalCompositeOperation = "source-over";
@@ -710,11 +674,11 @@ export function initHudCore() {
   // Allow pointer events on canvas for drag
   canvas.style.pointerEvents = "auto";
 
-  // ---- Init particles (220 crisp points on the hollow shell) ----
-  const N = 220;
+  // ---- Init sparks (200 crisp sparks/streaks on the hollow shell) ----
+  const N = 200;
   hudParticles = [];
   for (let i = 0; i < N; i++) {
-    hudParticles.push(new HudParticle(i, N));
+    hudParticles.push(new HudSpark(i, N));
   }
 
   // ---- Pointer events on #hud-core (covers both canvas and label area) ----

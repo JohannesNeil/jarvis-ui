@@ -1,5 +1,6 @@
 import { state, getAuthHeaders, persistLocal } from "./state.js";
 import { $ } from "./ui.js";
+import { vaultUpsert } from "./vault-api.js";
 
 let syncTimer = null;
 let callbacks = {
@@ -90,6 +91,8 @@ export async function pushCloudWorkspace() {
         }))
     }));
 
+    // Workspace payload — vault content is stored separately via /vault API
+    // Only the catalog (name + id) is included here for backward compat
     const payload = {
       schedule: state.schedule,
       todos: state.todos,
@@ -99,7 +102,7 @@ export async function pushCloudWorkspace() {
       vaultCatalog: state.vault.map((v) => ({
         id: v.id,
         name: v.name,
-        detail: `${v.content.length.toLocaleString()} chars`
+        detail: `${(v.content ? v.content.length : v.size || 0).toLocaleString()} chars`
       }))
     };
 
@@ -113,6 +116,20 @@ export async function pushCloudWorkspace() {
       return;
     }
     setSyncStatus(res.ok ? "online" : "offline");
+  } catch {
+    setSyncStatus("offline");
+  }
+}
+
+/**
+ * Syncs a newly added vault document to separate-file GitHub storage.
+ * Called from the file upload handler after inserting into state.vault.
+ * Non-fatal: failure only sets offline status.
+ */
+export async function pushVaultDoc(doc) {
+  if (!state.sessionToken || !state.vaultKeyB64 || !doc || !doc.id) return;
+  try {
+    await vaultUpsert(doc.id, doc.name, doc.content || "");
   } catch {
     setSyncStatus("offline");
   }
