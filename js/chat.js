@@ -7,7 +7,8 @@ import {
   openSelectTextModal,
   openConfirmToolModal,
   closeConfirmToolModal,
-  setHudState
+  setHudState,
+  setHudVoiceLevel
 } from "./ui.js";
 import { saveLocalSnapshot, scheduleCloudSync } from "./sync.js";
 import { renderSchedule, renderTodos, renderNotes } from "./workspace.js";
@@ -656,6 +657,22 @@ export async function sendMessage(overrideText = null) {
   let streamStarted = false;
   let rafId = null;
 
+  // ---- Voice envelope for HUD particle displacement during streaming ----
+  // Each arriving token pulses the voice level up; it naturally decays in the
+  // HUD render loop's syllable envelope when no new tokens arrive.
+  let _voiceDecayTimer = null;
+  const _HUD_TOKEN_PULSE = 0.72;   // voice level on token arrival (0–1)
+  const _HUD_DECAY_MS   = 180;     // ms after last token before hard-reset to 0
+
+  function _pulseHudVoice() {
+    setHudVoiceLevel(_HUD_TOKEN_PULSE);
+    if (_voiceDecayTimer) clearTimeout(_voiceDecayTimer);
+    _voiceDecayTimer = setTimeout(() => {
+      setHudVoiceLevel(0);
+      _voiceDecayTimer = null;
+    }, _HUD_DECAY_MS);
+  }
+
   const flushTokenRender = () => {
     rafId = null;
     const container = $("messages-container");
@@ -679,6 +696,7 @@ export async function sendMessage(overrideText = null) {
       setHudState("responding");
     }
     pendingMsg.text += token;
+    _pulseHudVoice();
     if (!rafId) {
       rafId = requestAnimationFrame(flushTokenRender);
     }
@@ -744,6 +762,11 @@ export async function sendMessage(overrideText = null) {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
+    if (_voiceDecayTimer) {
+      clearTimeout(_voiceDecayTimer);
+      _voiceDecayTimer = null;
+    }
+    setHudVoiceLevel(0);
     setHudState("idle");
     state.isSending = false;
     updateSendButtonState();

@@ -3,8 +3,8 @@
    ============================================================================= */
 
 /* -----------------------------------------------------------------------------
-   1. PARTICLE-TORUS HUD CORE CENTERPIECE
-   High-DPI HTML5 Canvas blooming radial spark ring with clean dual-theme parity
+   1. 3D PARTICLE ENTITY HUD CORE CENTERPIECE
+   Autonomous 3D cloud with shape morphing, voice sync, drag rotation, dual-theme
    ----------------------------------------------------------------------------- */
 .hud-core {
   position: relative;
@@ -14,13 +14,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   user-select: none;
-  transition: transform 0.2s ease;
+  transition: transform 0.18s ease;
 }
 
 .hud-core:hover {
-  transform: scale(1.02);
+  transform: scale(1.03);
 }
 
 .hud-canvas {
@@ -28,7 +27,13 @@
   height: 200px;
   display: block;
   background: transparent;
-  pointer-events: none;
+  /* pointer-events managed by JS for drag */
+  cursor: grab;
+  border-radius: 50%;
+}
+
+.hud-canvas:active {
+  cursor: grabbing;
 }
 
 /* Core Status Pill Badge */

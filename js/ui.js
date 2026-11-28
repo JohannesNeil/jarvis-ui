@@ -139,139 +139,228 @@ export function closeServerModal() {
 
 
 /* =============================================================================
-   BATCH 4 - [18] 60FPS HTML5 CANVAS PARTICLE-TORUS HUD CORE
-   Blooming radial spark ring lifecycle with dual-theme jewel/spectral gradients
+   BATCH 5 - [12] 3D AUTONOMOUS PARTICLE ENTITY HUD CORE
+   True 3D depth-sorted cloud with shape morphing, voice sync API, drag rotation
    ============================================================================= */
 let currentHudState = "idle"; // 'idle' | 'thinking' | 'responding'
 let hudAnimFrameId = null;
 let isHudAnimRunning = false;
 
-const HUD_BASE_DIAMETER = 200;
-const HUD_CENTER = HUD_BASE_DIAMETER / 2; // 100px
-const HUD_MAX_RADIUS = 88;
-const HUD_MIN_RADIUS = 6;
-const HUD_TORUS_CENTER_RADIUS = 46;
+const HUD_DIAM = 200;
+const HUD_R = HUD_DIAM / 2; // logical center = 100
+const HUD_SPHERE_R = 82; // max 3D radius
 
-class TorusParticle {
-  constructor() {
-    this.reset(true);
+// ---- Voice / Audio Sync state ----
+let _hudVoiceLevel = 0;      // 0.0–1.0, set by setHudVoiceLevel or speech envelope
+let _hudAudioAnalyser = null; // Web Audio AnalyserNode (optional, future TTS)
+let _hudAnalyserBuf = null;
+
+// ---- Drag / Swipe Rotation state ----
+let _rotX = 0.28; // radians tilt (around X-axis)
+let _rotY = 0;    // radians spin (around Y-axis)
+let _velX = 0;    // inertia velocity
+let _velY = 0.004; // gentle baseline drift
+let _dragActive = false;
+let _dragLastX = 0;
+let _dragLastY = 0;
+let _dragDeltaX = 0;
+let _dragDeltaY = 0;
+
+// ---- Shape morph state ----
+const SHAPE_DURATION_MS = 7000; // time per shape
+const SHAPES = ["fibonacci", "torus", "helix", "wave", "crystal"];
+let _shapeIdx = 0;
+let _shapeMorphT = 0; // 0→1 blend between _shapeIdx and next
+let _shapeLastMs = 0;
+
+// ---- Breathing / organic drift ----
+let _breathPhase = 0;
+
+// ---- Speech cadence envelope (used when responding with no AudioAnalyser) ----
+let _syllablePhase = 0;
+let _syllableEnv = 0;
+const SYLLABLE_PATTERN = [0.9, 0.5, 1.0, 0.3, 0.8, 0.2, 0.95, 0.4, 0.7, 0.15];
+let _syllableIdx = 0;
+let _syllableStep = 0;
+
+/* ---- Shape target generators (return normalized unit vectors * sphere radius) ---- */
+function shapeFibSphere(i, n) {
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const y = 1 - (i / (n - 1)) * 2;
+  const r = Math.sqrt(Math.max(0, 1 - y * y));
+  const theta = golden * i;
+  return { tx: Math.cos(theta) * r, ty: y, tz: Math.sin(theta) * r };
+}
+
+function shapeTorus(i, n) {
+  const ang = (i / n) * Math.PI * 2;
+  const tubeAng = (i * 7.3) % (Math.PI * 2);
+  const bigR = 0.65, smallR = 0.28;
+  return {
+    tx: (bigR + smallR * Math.cos(tubeAng)) * Math.cos(ang),
+    ty: smallR * Math.sin(tubeAng),
+    tz: (bigR + smallR * Math.cos(tubeAng)) * Math.sin(ang)
+  };
+}
+
+function shapeHelix(i, n) {
+  const t = (i / n) * Math.PI * 6;
+  const strand = i % 2 === 0 ? 0 : Math.PI;
+  const helR = 0.5;
+  return {
+    tx: helR * Math.cos(t + strand),
+    ty: (i / n) * 2 - 1,
+    tz: helR * Math.sin(t + strand)
+  };
+}
+
+function shapeWave(i, n) {
+  const col = i % 16, row = Math.floor(i / 16);
+  const u = (col / 15) * 2 - 1;
+  const v = (row / (Math.floor(n / 16) - 1)) * 2 - 1;
+  const amp = 0.35;
+  return {
+    tx: u * 0.9,
+    ty: amp * Math.sin(u * Math.PI * 2.4 + v * Math.PI),
+    tz: v * 0.9
+  };
+}
+
+function shapeCrystal(i, n) {
+  // 8-point octahedron + lattice scatter
+  const octFaces = [
+    [1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1],
+    [0.707,0.707,0],[0.707,-0.707,0],[-0.707,0.707,0],[-0.707,-0.707,0],
+    [0.707,0,0.707],[0.707,0,-0.707],[-0.707,0,0.707],[-0.707,0,-0.707],
+    [0,0.707,0.707],[0,0.707,-0.707],[0,-0.707,0.707],[0,-0.707,-0.707]
+  ];
+  const face = octFaces[i % octFaces.length];
+  const jitter = 0.18;
+  const seed = (i * 1.618) % 1;
+  return {
+    tx: face[0] * 0.82 + (seed - 0.5) * jitter,
+    ty: face[1] * 0.82 + ((i * 0.317) % 1 - 0.5) * jitter,
+    tz: face[2] * 0.82 + ((i * 0.513) % 1 - 0.5) * jitter
+  };
+}
+
+function getShapeTarget(shapeKey, i, n) {
+  switch (shapeKey) {
+    case "torus":   return shapeTorus(i, n);
+    case "helix":   return shapeHelix(i, n);
+    case "wave":    return shapeWave(i, n);
+    case "crystal": return shapeCrystal(i, n);
+    default:        return shapeFibSphere(i, n);
+  }
+}
+
+/* ---- 3D Particle ---- */
+class Particle3D {
+  constructor(i, n) {
+    this.i = i;
+    this.n = n;
+    // Start on fibonacci sphere
+    const s = shapeFibSphere(i, n);
+    this.x = s.tx * HUD_SPHERE_R;
+    this.y = s.ty * HUD_SPHERE_R;
+    this.z = s.tz * HUD_SPHERE_R;
+    // Velocity (spring-damped, starts at rest)
+    this.vx = 0; this.vy = 0; this.vz = 0;
+    // Organic float offsets
+    this.driftPhase = Math.random() * Math.PI * 2;
+    this.driftAmp = 1.5 + Math.random() * 2.0;
+    this.driftFreq = 0.0008 + Math.random() * 0.0006;
+    // Visual
+    this.baseSize = 1.0 + Math.random() * 1.4;
+    this.colorPhase = Math.random(); // 0–1 position in palette
+    this.sparkPhase = Math.random() * Math.PI * 2;
+    this.sparkSpeed = 0.04 + Math.random() * 0.06;
+    // Projected (set each frame)
+    this.px = 0; this.py = 0; this.pz = 0;
+    this.screenX = 0; this.screenY = 0;
+    this.screenAlpha = 1; this.screenSize = 1;
   }
 
-  reset(isInitial = false) {
-    this.angle = Math.random() * Math.PI * 2;
-    // Stagger progress across life cycle [0, 1] so centerpiece is never blank
-    this.progress = isInitial ? Math.random() : 0;
-    this.speed = 0.005 + Math.random() * 0.006;
-    this.angularVelocity = (0.004 + Math.random() * 0.006) * (Math.random() < 0.5 ? 1 : -1);
-    this.ringVariance = (Math.random() - 0.5) * 18;
-    this.size = 0.8 + Math.random() * 1.5;
-    this.streakLength = 2.4 + Math.random() * 3.2;
-    this.sparklePhase = Math.random() * Math.PI * 2;
-    this.sparkleSpeed = 0.08 + Math.random() * 0.12;
+  applySpring(tx, ty, tz, stiffness, damping, dt, breathScale, voiceDisplace) {
+    const bx = tx * breathScale + voiceDisplace * (tx);
+    const by = ty * breathScale + voiceDisplace * (ty);
+    const bz = tz * breathScale + voiceDisplace * (tz);
+    this.vx += (bx - this.x) * stiffness * dt;
+    this.vy += (by - this.y) * stiffness * dt;
+    this.vz += (bz - this.z) * stiffness * dt;
+    this.vx *= (1 - damping * dt);
+    this.vy *= (1 - damping * dt);
+    this.vz *= (1 - damping * dt);
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.z += this.vz * dt;
   }
 
-  update(stateConfig) {
-    const { speedMult, swirlMult, coreJitter } = stateConfig;
+  project(rotX, rotY, fov, cx, cy, timestamp) {
+    // 3D rotation: Y-axis then X-axis
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
 
-    this.progress += this.speed * speedMult;
-    if (this.progress >= 1.0) {
-      this.reset(false);
-    }
+    // Organic drift
+    const drift = this.driftAmp * Math.sin(timestamp * this.driftFreq + this.driftPhase);
 
-    // Angular orbital drift
-    this.angle += this.angularVelocity * swirlMult;
+    let px = this.x + drift * 0.3;
+    let py = this.y + drift * 0.5;
+    let pz = this.z + drift * 0.2;
 
-    const p = this.progress;
-    let r = 0;
+    // Y rotation
+    const rx1 = px * cosY - pz * sinY;
+    const rz1 = px * sinY + pz * cosY;
+    // X rotation
+    const ry2 = py * cosX - rz1 * sinX;
+    const rz2 = py * sinX + rz1 * cosX;
 
-    // 4-Phase Radial Bloom Lifecycle:
-    // a) Ignition (0.0 - 0.18): spawns near center, accelerates outward radially
-    if (p < 0.18) {
-      const t = p / 0.18;
-      const eased = t * t;
-      r = HUD_MIN_RADIUS + (HUD_TORUS_CENTER_RADIUS * 0.65 - HUD_MIN_RADIUS) * eased;
-    }
-    // b) Torus Formation (0.18 - 0.65): hollow-centered ring with orbital drift
-    else if (p < 0.65) {
-      const t = (p - 0.18) / (0.65 - 0.18);
-      const startR = HUD_TORUS_CENTER_RADIUS * 0.65;
-      const targetR = HUD_TORUS_CENTER_RADIUS + this.ringVariance;
-      const smooth = t * t * (3 - 2 * t);
-      r = startR + (targetR - startR) * smooth;
-    }
-    // d) Ember Dissipation (0.65 - 1.0): outer tips decelerate, twinkle & fade smoothly
-    else {
-      const t = (p - 0.65) / (1.0 - 0.65);
-      const startR = HUD_TORUS_CENTER_RADIUS + this.ringVariance;
-      const endR = HUD_MAX_RADIUS + this.ringVariance * 0.4;
-      const eased = Math.sin((t * Math.PI) / 2);
-      r = startR + (endR - startR) * eased;
-    }
-
-    if (coreJitter > 0 && p < 0.28) {
-      r += (Math.random() - 0.5) * coreJitter;
-    }
-
-    this.x = HUD_CENTER + Math.cos(this.angle) * r;
-    this.y = HUD_CENTER + Math.sin(this.angle) * r;
-
-    this.sparklePhase += this.sparkleSpeed;
+    this.pz = rz2;
+    const scale = fov / (fov + rz2 + HUD_SPHERE_R);
+    this.screenX = cx + rx1 * scale;
+    this.screenY = cy + ry2 * scale;
+    this.screenSize = this.baseSize * scale * 1.6;
+    // Depth alpha: near = bright, far = dim
+    this.screenAlpha = 0.35 + 0.65 * ((rz2 + HUD_SPHERE_R) / (HUD_SPHERE_R * 2));
+    this.sparkPhase += this.sparkSpeed;
   }
 }
 
 let hudParticles = [];
 
-function getParticleColor(progress, isLightMode) {
-  const p = Math.max(0, Math.min(1, progress));
-  let r = 0, g = 0, b = 0;
-
+/* ---- Palette ---- */
+function getParticleColor(t, isLightMode) {
+  const p = Math.max(0, Math.min(1, t));
+  let r, g, b;
   if (isLightMode) {
-    // Light Mode: High-contrast rich jewel tones for crisp rendering on #FAF9F6
-    if (p < 0.25) {
-      // Phase 1: Deep cyan-teal -> cobalt blue
-      const t = p / 0.25;
-      r = Math.round(14 * (1 - t) + 29 * t);
-      g = Math.round(116 * (1 - t) + 78 * t);
-      b = Math.round(144 * (1 - t) + 216 * t);
-    } else if (p < 0.65) {
-      // Phase 2: Cobalt blue -> royal violet -> rich plum
-      const t = (p - 0.25) / 0.40;
-      r = Math.round(29 * (1 - t) + 124 * t);
-      g = Math.round(78 * (1 - t) + 28 * t);
-      b = Math.round(216 * (1 - t) + 120 * t);
+    // Jewel tones: deep teal → cobalt → indigo → coral
+    if (p < 0.33) {
+      const u = p / 0.33;
+      r = Math.round(10 + 19 * u); g = Math.round(130 - 70 * u); b = Math.round(140 + 90 * u);
+    } else if (p < 0.66) {
+      const u = (p - 0.33) / 0.33;
+      r = Math.round(29 + 95 * u); g = Math.round(60 - 32 * u); b = Math.round(230 - 110 * u);
     } else {
-      // Phase 3: Rich plum -> warm coral ruby
-      const t = (p - 0.65) / 0.35;
-      r = Math.round(124 * (1 - t) + 225 * t);
-      g = Math.round(28 * (1 - t) + 29 * t);
-      b = Math.round(120 * (1 - t) + 72 * t);
+      const u = (p - 0.66) / 0.34;
+      r = Math.round(124 + 110 * u); g = Math.round(28 + 10 * u); b = Math.round(120 - 60 * u);
     }
   } else {
-    // Dark Mode: Electric spectral gradient with bright luminescence
-    if (p < 0.25) {
-      // Phase 1: Bright cyan/white -> electric sky-blue
-      const t = p / 0.25;
-      r = Math.round(220 * (1 - t) + 56 * t);
-      g = Math.round(250 * (1 - t) + 189 * t);
-      b = Math.round(255 * (1 - t) + 248 * t);
+    // Cyber: bright cyan/white → electric blue → violet-magenta → coral
+    if (p < 0.3) {
+      const u = p / 0.3;
+      r = Math.round(210 - 150 * u); g = Math.round(248 - 60 * u); b = 255;
     } else if (p < 0.65) {
-      // Phase 2: Electric sky-blue -> violet-magenta
-      const t = (p - 0.25) / 0.40;
-      r = Math.round(56 * (1 - t) + 192 * t);
-      g = Math.round(189 * (1 - t) + 72 * t);
-      b = Math.round(248 * (1 - t) + 210 * t);
+      const u = (p - 0.3) / 0.35;
+      r = Math.round(60 + 140 * u); g = Math.round(188 - 120 * u); b = Math.round(255 - 50 * u);
     } else {
-      // Phase 3: Violet-magenta -> warm coral / red-orange
-      const t = (p - 0.65) / 0.35;
-      r = Math.round(192 * (1 - t) + 249 * t);
-      g = Math.round(72 * (1 - t) + 115 * t);
-      b = Math.round(210 * (1 - t) + 22 * t);
+      const u = (p - 0.65) / 0.35;
+      r = Math.round(200 + 55 * u); g = Math.round(68 + 48 * u); b = Math.round(205 - 185 * u);
     }
   }
-
-  return { r, g, b };
+  return { r: Math.max(0,Math.min(255,r)), g: Math.max(0,Math.min(255,g)), b: Math.max(0,Math.min(255,b)) };
 }
 
+/* ---- Main render frame ---- */
 function renderHudFrame(timestamp = 0) {
   const canvas = $("hud-canvas");
   if (!canvas) return;
@@ -279,135 +368,141 @@ function renderHudFrame(timestamp = 0) {
   if (!ctx) return;
 
   const isLightMode = state.theme === "light";
+  const n = hudParticles.length;
+  if (n === 0) return;
 
-  // Clear canvas (100% transparent background)
-  ctx.clearRect(0, 0, HUD_BASE_DIAMETER, HUD_BASE_DIAMETER);
+  // ---- Audio analyser sampling (future TTS) ----
+  if (_hudAudioAnalyser && _hudAnalyserBuf) {
+    _hudAudioAnalyser.getByteFrequencyData(_hudAnalyserBuf);
+    let sum = 0;
+    for (let i = 0; i < _hudAnalyserBuf.length; i++) sum += _hudAnalyserBuf[i];
+    _hudVoiceLevel = Math.min(1, (sum / _hudAnalyserBuf.length) / 128);
+  }
 
-  // State parameter modulation
-  let speedMult = 1.0;
-  let swirlMult = 1.0;
-  let streakMult = 1.0;
-  let coreJitter = 0;
-  let targetParticleCount = 180;
-  let harmonicPulse = 0;
+  // ---- Speech cadence envelope (responding without AudioAnalyser) ----
+  _syllableStep++;
+  if (currentHudState === "responding" && !_hudAudioAnalyser) {
+    if (_syllableStep % 7 === 0) {
+      _syllableIdx = (_syllableIdx + 1) % SYLLABLE_PATTERN.length;
+    }
+    const target = SYLLABLE_PATTERN[_syllableIdx];
+    _syllableEnv += (target - _syllableEnv) * 0.08;
+    _hudVoiceLevel = _syllableEnv * 0.6;
+  } else if (currentHudState !== "responding") {
+    _syllableEnv += (0 - _syllableEnv) * 0.05;
+    if (!_hudAudioAnalyser) _hudVoiceLevel = _syllableEnv;
+  }
 
+  // ---- Shape morphing ----
+  const dt = 1; // logical tick (normalized to 60fps)
+  const shapeElapsed = timestamp - _shapeLastMs;
+  _shapeMorphT = Math.min(1, shapeElapsed / SHAPE_DURATION_MS);
+  if (_shapeMorphT >= 1) {
+    _shapeIdx = (_shapeIdx + 1) % SHAPES.length;
+    _shapeLastMs = timestamp;
+    _shapeMorphT = 0;
+  }
+  const morphSmooth = _shapeMorphT * _shapeMorphT * (3 - 2 * _shapeMorphT); // smoothstep
+
+  const curShape = SHAPES[_shapeIdx];
+  const nextShape = SHAPES[(_shapeIdx + 1) % SHAPES.length];
+
+  // ---- Breathing pulse ----
+  _breathPhase += 0.0012;
+  const breathScale = currentHudState === "thinking"
+    ? 0.78 + 0.10 * Math.sin(_breathPhase * 2.2)
+    : 0.90 + 0.10 * Math.sin(_breathPhase);
+
+  // ---- State-driven spring params ----
+  let stiffness, damping, fovDist;
   if (currentHudState === "thinking") {
-    speedMult = 1.7;
-    swirlMult = 2.7;
-    streakMult = 1.3;
-    coreJitter = 2.8;
-    targetParticleCount = 250;
-    harmonicPulse = Math.sin(timestamp * 0.009) * 3.5;
+    stiffness = 0.14; damping = 0.18; fovDist = 260;
   } else if (currentHudState === "responding") {
-    speedMult = 1.35;
-    swirlMult = 1.5;
-    streakMult = 1.6;
-    coreJitter = 1.0;
-    targetParticleCount = 210;
-    harmonicPulse = Math.sin(timestamp * 0.005) * 5.5; // Outward harmonic burst
+    stiffness = 0.09; damping = 0.12; fovDist = 230;
   } else {
-    // idle
-    speedMult = 1.0;
-    swirlMult = 1.0;
-    streakMult = 1.0;
-    coreJitter = 0;
-    targetParticleCount = 180;
-    harmonicPulse = Math.sin(timestamp * 0.0025) * 2.0;
+    stiffness = 0.06; damping = 0.10; fovDist = 250;
   }
 
-  const stateConfig = { speedMult, swirlMult, streakMult, coreJitter, harmonicPulse };
-
-  // Adjust particle count smoothly
-  while (hudParticles.length < targetParticleCount) {
-    hudParticles.push(new TorusParticle());
+  // ---- Rotation inertia ----
+  if (!_dragActive) {
+    _rotY += _velY;
+    _rotX += _velX;
+    _velX *= 0.96;
+    // Drift velY back toward baseline
+    _velY += (0.004 - _velY) * 0.015;
+    // Gentle X drift toward slight downward tilt
+    _rotX += (0.28 - _rotX) * 0.005;
   }
-  if (hudParticles.length > targetParticleCount) {
-    hudParticles.length = targetParticleCount;
+
+  // ---- Update particles ----
+  const voiceDisplace = _hudVoiceLevel * 14;
+  for (let i = 0; i < n; i++) {
+    const p = hudParticles[i];
+    const cur = getShapeTarget(curShape, i, n);
+    const nxt = getShapeTarget(nextShape, i, n);
+    const tx = (cur.tx * (1 - morphSmooth) + nxt.tx * morphSmooth) * HUD_SPHERE_R;
+    const ty = (cur.ty * (1 - morphSmooth) + nxt.ty * morphSmooth) * HUD_SPHERE_R;
+    const tz = (cur.tz * (1 - morphSmooth) + nxt.tz * morphSmooth) * HUD_SPHERE_R;
+    p.applySpring(tx, ty, tz, stiffness, damping, dt, breathScale, voiceDisplace);
+    p.project(_rotX, _rotY, fovDist, HUD_R, HUD_R, timestamp);
   }
 
-  // Blend mode: Dark mode uses additive lighter for glowing aura; Light mode uses source-over for crisp jewel ink
-  ctx.globalCompositeOperation = isLightMode ? "source-over" : "lighter";
+  // ---- Depth sort back-to-front ----
+  hudParticles.sort((a, b) => b.pz - a.pz);
 
-  // Draw subtle center guide rings
-  const guideAlpha = isLightMode ? 0.08 : 0.14;
+  // ---- Draw ----
+  ctx.clearRect(0, 0, HUD_DIAM, HUD_DIAM);
+
+  // Subtle central glow dot
+  const glowR = 5 + _hudVoiceLevel * 6;
+  const glowGrad = ctx.createRadialGradient(HUD_R, HUD_R, 0, HUD_R, HUD_R, glowR * 2.5);
+  if (isLightMode) {
+    glowGrad.addColorStop(0, `rgba(14, 116, 144, ${0.35 + _hudVoiceLevel * 0.3})`);
+    glowGrad.addColorStop(1, "rgba(14, 116, 144, 0)");
+  } else {
+    glowGrad.addColorStop(0, `rgba(160, 240, 255, ${0.45 + _hudVoiceLevel * 0.4})`);
+    glowGrad.addColorStop(1, "rgba(160, 240, 255, 0)");
+  }
   ctx.beginPath();
-  ctx.arc(HUD_CENTER, HUD_CENTER, HUD_TORUS_CENTER_RADIUS + harmonicPulse * 0.5, 0, Math.PI * 2);
-  ctx.strokeStyle = isLightMode ? `rgba(24, 24, 27, ${guideAlpha * 0.6})` : `rgba(255, 255, 255, ${guideAlpha})`;
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(HUD_CENTER, HUD_CENTER, 8, 0, Math.PI * 2);
-  ctx.fillStyle = isLightMode ? "rgba(14, 116, 144, 0.4)" : "rgba(220, 250, 255, 0.5)";
+  ctx.arc(HUD_R, HUD_R, glowR * 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = glowGrad;
   ctx.fill();
 
-  // Update & Render each particle in the blooming torus
+  // Particles — dots only, no lines between them
+  ctx.globalCompositeOperation = isLightMode ? "source-over" : "lighter";
   for (const p of hudParticles) {
-    p.update(stateConfig);
+    const sparkle = 0.75 + 0.25 * Math.sin(p.sparkPhase);
+    const alpha = p.screenAlpha * sparkle * (isLightMode ? 0.92 : 0.88);
+    if (alpha < 0.04) continue;
 
-    const prog = p.progress;
-    let alpha = 1.0;
+    const { r, g, b } = getParticleColor(p.colorPhase, isLightMode);
+    const sz = Math.max(0.5, p.screenSize);
 
-    // Phase opacity curve:
-    // Ignition fade-in
-    if (prog < 0.12) {
-      alpha = prog / 0.12;
-    }
-    // Torus dwell
-    else if (prog <= 0.65) {
-      alpha = 0.85 + 0.15 * Math.sin(p.sparklePhase);
-    }
-    // Ember dissipation fade-out
-    else {
-      const fadeT = (prog - 0.65) / 0.35;
-      alpha = Math.max(0, (1 - fadeT) * (0.8 + 0.2 * Math.sin(p.sparklePhase * 2)));
+    // Soft glow halo (larger, transparent)
+    if (!isLightMode) {
+      ctx.beginPath();
+      ctx.arc(p.screenX, p.screenY, sz * 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha * 0.18})`;
+      ctx.fill();
     }
 
-    if (alpha <= 0.01) continue;
-
-    const { r, g, b } = getParticleColor(prog, isLightMode);
-
-    // Radial streak dash calculation
-    const dx = p.x - HUD_CENTER;
-    const dy = p.y - HUD_CENTER;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const nx = dx / dist;
-    const ny = dy / dist;
-
-    const streakLen = p.streakLength * (0.6 + prog * 0.8) * streakMult;
-    const tailX = p.x - nx * streakLen;
-    const tailY = p.y - ny * streakLen;
-
-    // Draw streak
+    // Core dot
     ctx.beginPath();
-    ctx.moveTo(tailX, tailY);
-    ctx.lineTo(p.x, p.y);
-    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * (isLightMode ? 0.9 : 0.8)})`;
-    ctx.lineWidth = p.size;
-    ctx.lineCap = "round";
-    ctx.stroke();
-
-    // Spark head dot
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * 0.7, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    ctx.arc(p.screenX, p.screenY, sz, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
     ctx.fill();
   }
 
-  // Reset composite operation
   ctx.globalCompositeOperation = "source-over";
 }
 
 function hudAnimLoop(timestamp) {
   const canvas = $("hud-canvas");
   const welcome = $("welcome-view");
-
-  // Pause automatically if welcome view is hidden or tab is in background
   if (!canvas || !welcome || welcome.classList.contains("hidden") || welcome.offsetParent === null || document.hidden) {
     stopHudAnimation();
     return;
   }
-
   renderHudFrame(timestamp);
   hudAnimFrameId = requestAnimationFrame(hudAnimLoop);
 }
@@ -417,10 +512,9 @@ export function startHudAnimation() {
   const canvas = $("hud-canvas");
   const welcome = $("welcome-view");
   if (!canvas || !welcome) return;
-  if (welcome.classList.contains("hidden") || welcome.offsetParent === null || document.hidden) {
-    return;
-  }
+  if (welcome.classList.contains("hidden") || welcome.offsetParent === null || document.hidden) return;
   isHudAnimRunning = true;
+  _shapeLastMs = performance.now();
   hudAnimFrameId = requestAnimationFrame(hudAnimLoop);
 }
 
@@ -433,7 +527,26 @@ export function stopHudAnimation() {
 }
 
 /**
- * Updates the concentric HUD core state with pulse animations and status tag.
+ * Voice sync API — set by TTS or streaming envelope.
+ * level: 0.0–1.0 audio energy; bands: optional Float32Array of freq bands.
+ */
+export function setHudVoiceLevel(level, bands = null) {
+  _hudVoiceLevel = Math.max(0, Math.min(1, level));
+}
+
+/**
+ * Bind a Web Audio AnalyserNode for real-time audio-driven HUD displacement.
+ * Pass null to detach.
+ */
+export function bindHudAudioAnalyser(analyserNode) {
+  _hudAudioAnalyser = analyserNode || null;
+  _hudAnalyserBuf = analyserNode
+    ? new Uint8Array(analyserNode.frequencyBinCount)
+    : null;
+}
+
+/**
+ * Updates the 3D Particle Entity HUD core state.
  * @param {'idle' | 'thinking' | 'responding'} newState
  */
 export function setHudState(newState) {
@@ -450,25 +563,39 @@ export function setHudState(newState) {
 
   if (label) {
     switch (validState) {
-      case "thinking":
-        label.textContent = "COMPUTING...";
-        break;
-      case "responding":
-        label.textContent = "SYNTHESIZING...";
-        break;
-      case "idle":
-      default:
-        label.textContent = "CORE ONLINE";
-        break;
+      case "thinking":    label.textContent = "COMPUTING...";    break;
+      case "responding":  label.textContent = "SYNTHESIZING..."; break;
+      default:            label.textContent = "CORE ONLINE";     break;
     }
   }
 
-  // Wake loop if paused
   startHudAnimation();
 }
 
 export function getHudState() {
   return currentHudState;
+}
+
+/* ---- Drag / Swipe rotation helpers ---- */
+function hudDragStart(x, y) {
+  _dragActive = true;
+  _dragLastX = x; _dragLastY = y;
+  _dragDeltaX = 0; _dragDeltaY = 0;
+}
+function hudDragMove(x, y) {
+  if (!_dragActive) return;
+  _dragDeltaX = x - _dragLastX;
+  _dragDeltaY = y - _dragLastY;
+  _rotY += _dragDeltaX * 0.012;
+  _rotX += _dragDeltaY * 0.012;
+  _dragLastX = x; _dragLastY = y;
+}
+function hudDragEnd() {
+  if (!_dragActive) return;
+  _dragActive = false;
+  // Hand momentum to inertia velocities
+  _velY = _dragDeltaX * 0.012;
+  _velX = _dragDeltaY * 0.012;
 }
 
 export function initHudCore() {
@@ -483,68 +610,78 @@ export function initHudCore() {
     core.prepend(canvas);
   }
 
-  // Setup High-DPI buffer
+  // High-DPI setup
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = HUD_BASE_DIAMETER * dpr;
-  canvas.height = HUD_BASE_DIAMETER * dpr;
-  canvas.style.width = `${HUD_BASE_DIAMETER}px`;
-  canvas.style.height = `${HUD_BASE_DIAMETER}px`;
+  canvas.width = HUD_DIAM * dpr;
+  canvas.height = HUD_DIAM * dpr;
+  canvas.style.width = `${HUD_DIAM}px`;
+  canvas.style.height = `${HUD_DIAM}px`;
   const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.scale(dpr, dpr);
-  }
+  if (ctx) ctx.scale(dpr, dpr);
 
-  // Initialize particles with staggered progress
+  // Allow pointer events on canvas for drag
+  canvas.style.pointerEvents = "auto";
+
+  // ---- Init particles ----
+  const N = 260;
   hudParticles = [];
-  for (let i = 0; i < 180; i++) {
-    hudParticles.push(new TorusParticle());
+  for (let i = 0; i < N; i++) {
+    hudParticles.push(new Particle3D(i, N));
   }
 
-  // Clicking the HUD core cycles through states for instant tactile feedback
-  core.addEventListener("click", () => {
+  // ---- Drag / Swipe events (canvas) ----
+  canvas.addEventListener("mousedown", (e) => { e.preventDefault(); hudDragStart(e.clientX, e.clientY); });
+  window.addEventListener("mousemove", (e) => { hudDragMove(e.clientX, e.clientY); });
+  window.addEventListener("mouseup", () => { hudDragEnd(); });
+
+  canvas.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    hudDragStart(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  canvas.addEventListener("touchmove", (e) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    hudDragMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  canvas.addEventListener("touchend", () => { hudDragEnd(); });
+
+  // Click cycles state (only if not a drag)
+  let _clickDragMoved = false;
+  canvas.addEventListener("mousedown", () => { _clickDragMoved = false; });
+  canvas.addEventListener("mousemove", () => { _clickDragMoved = true; });
+  canvas.addEventListener("click", () => {
+    if (_clickDragMoved) return;
     const states = ["idle", "thinking", "responding"];
-    const nextIdx = (states.indexOf(currentHudState) + 1) % states.length;
-    setHudState(states[nextIdx]);
+    setHudState(states[(states.indexOf(currentHudState) + 1) % states.length]);
   });
 
-  // Observe send button & prompt input to trigger thinking/responding pulse
+  // Send btn / prompt input → thinking state
   const sendBtn = $("send-btn");
   const promptInput = $("prompt-input");
-
   if (sendBtn) {
     sendBtn.addEventListener("click", () => {
-      if (promptInput && promptInput.value.trim()) {
-        setHudState("thinking");
-      }
+      if (promptInput && promptInput.value.trim()) setHudState("thinking");
     });
   }
-
   if (promptInput) {
     promptInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey && promptInput.value.trim()) {
-        setHudState("thinking");
-      }
+      if (e.key === "Enter" && !e.shiftKey && promptInput.value.trim()) setHudState("thinking");
     });
   }
 
-  // Handle tab visibility change to save CPU/battery
+  // Tab visibility
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      stopHudAnimation();
-    } else {
-      startHudAnimation();
-    }
+    document.hidden ? stopHudAnimation() : startHudAnimation();
   });
 
-  // Observe welcome-view visibility to pause loop when chatting
+  // Welcome view observer
   const welcome = $("welcome-view");
   if (welcome) {
     const obs = new MutationObserver(() => {
-      if (welcome.classList.contains("hidden") || welcome.offsetParent === null) {
-        stopHudAnimation();
-      } else {
-        startHudAnimation();
-      }
+      (welcome.classList.contains("hidden") || welcome.offsetParent === null)
+        ? stopHudAnimation()
+        : startHudAnimation();
     });
     obs.observe(welcome, { attributes: true, attributeFilter: ["class", "style"] });
   }
@@ -557,6 +694,8 @@ window.setHudState = setHudState;
 window.getHudState = getHudState;
 window.startHudAnimation = startHudAnimation;
 window.stopHudAnimation = stopHudAnimation;
+window.setHudVoiceLevel = setHudVoiceLevel;
+window.bindHudAudioAnalyser = bindHudAudioAnalyser;
 
 
 /* =============================================================================
@@ -1679,10 +1818,6 @@ window.redoAnnotation = redoAnnotation;
 window.clearAnnotations = clearAnnotations;
 window.setAnnotMode = setAnnotMode;
 window.downloadCurrentMedia = downloadCurrentMedia;
-
-window.openDiagramModal = openDiagramModal;
-window.closeDiagramModal = closeDiagramModal;
-window.initDiagramInspection = initDiagramInspection;
 
 
 /* =============================================================================
