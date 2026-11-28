@@ -304,19 +304,15 @@ function buildAiMessageElement(msg) {
 
   if (msg.generatedImage) {
     const media = document.createElement("div");
-    media.className = "media-card";
-    const ext = msg.generatedImage.startsWith("data:image/jpeg") ? "jpg" : "png";
-    media.innerHTML =
-      `<img src="${msg.generatedImage}" alt="Generated visual" />` +
-      `<div class="media-actions"><a class="download-media-btn" href="${msg.generatedImage}" download="jarvis-visual.${ext}">Download Image</a></div>`;
+    media.className = "media-card media-inspectable";
+    media.title = "Click to inspect full screen";
+    media.innerHTML = `<img src="${msg.generatedImage}" alt="Generated visual" />`;
     row.appendChild(media);
   } else if (msg.generatedSvg) {
     const media = document.createElement("div");
-    media.className = "media-card";
-    const svgBlobUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(msg.generatedSvg);
-    media.innerHTML =
-      `${msg.generatedSvg}` +
-      `<div class="media-actions"><a class="download-media-btn" href="${svgBlobUrl}" download="jarvis-diagram.svg">Download SVG</a></div>`;
+    media.className = "media-card media-inspectable";
+    media.title = "Click to inspect full screen";
+    media.innerHTML = `${msg.generatedSvg}`;
     row.appendChild(media);
   }
 

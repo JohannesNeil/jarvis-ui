@@ -117,11 +117,12 @@ export function renderMarkdown(raw) {
       flushParagraph();
       flushList();
       const block = codeBlocks[Number(cbMatch[1])];
+      const cleanLang = (block.lang || "").trim().toLowerCase();
       htmlParts.push(
         `<div class="code-wrapper" data-code-idx="${cbMatch[1]}">` +
-          `<div class="code-header"><span>${escapeHtml(block.lang)}</span>` +
+          `<div class="code-header"><span>${escapeHtml(block.lang || "code")}</span>` +
           `<button class="copy-code-btn" type="button">Copy</button></div>` +
-          `<pre><code>${escapeHtml(block.code)}</code></pre>` +
+          `<pre class="${cleanLang ? `language-${escapeHtml(cleanLang)}` : ""}"><code class="${cleanLang ? `language-${escapeHtml(cleanLang)}` : ""}">${escapeHtml(block.code)}</code></pre>` +
         `</div>`
       );
       continue;

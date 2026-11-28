@@ -602,19 +602,50 @@ const LANGUAGE_ALIASES = {
   "sv": "verilog",
   "verilog": "verilog",
   "systemverilog": "verilog",
+  "json": "json",
+  "bash": "bash",
+  "sh": "bash",
+  "yaml": "yaml",
+  "yml": "yaml",
+  "latex": "latex",
+  "tex": "latex"
+};
+
+const LANGUAGE_LABELS = {
+  csharp: "CSHARP",
+  java: "JAVA",
+  python: "PYTHON",
+  sql: "SQL",
+  markup: "HTML",
+  css: "CSS",
+  javascript: "JAVASCRIPT",
+  typescript: "TYPESCRIPT",
+  c: "C",
+  cpp: "C++",
+  verilog: "VERILOG",
+  json: "JSON",
+  bash: "BASH",
+  yaml: "YAML",
+  latex: "LATEX"
 };
 
 /**
  * Normalizes language name into Prism-compatible language slug.
  */
 export function normalizeLanguageSlug(rawLang) {
-  if (!rawLang) return "javascript";
+  if (!rawLang) return "text";
   const clean = rawLang.trim().toLowerCase().replace(/^language-/, "").replace(/^lang-/, "");
   return LANGUAGE_ALIASES[clean] || clean;
 }
 
+export function getLanguageDisplayName(slug) {
+  const norm = normalizeLanguageSlug(slug);
+  return LANGUAGE_LABELS[norm] || (norm && norm !== "text" ? norm.toUpperCase() : "CODE");
+}
+
 /**
  * Enhances a pre/code block with language toolbar, copy button, and Prism highlight.
+ * Detects if pre already has a Markdown header/copy bar and highlights in-place without duplicate bars.
  */
 export function highlightCodeBlock(preEl) {
   if (!preEl || preEl.dataset.prismEnhanced === "true") return;
@@ -622,7 +653,7 @@ export function highlightCodeBlock(preEl) {
   const codeEl = preEl.querySelector("code") || preEl;
   let rawLang = "";
 
-  // Extract language from pre or code classes
+  // 1. Extract language from pre or code classes
   const classes = `${preEl.className} ${codeEl.className}`.split(/\s+/);
   for (const cls of classes) {
     if (cls.startsWith("language-") || cls.startsWith("lang-")) {
@@ -631,12 +662,42 @@ export function highlightCodeBlock(preEl) {
     }
   }
 
-  const lang = normalizeLanguageSlug(rawLang);
-  codeEl.className = `language-${lang}`;
-  preEl.className = `language-${lang}`;
+  // 2. Check if a parent/sibling Markdown header already exists
+  const existingWrapper = preEl.closest(".code-wrapper, .code-block-wrapper");
+  const existingHeader =
+    existingWrapper?.querySelector(".code-header, .code-block-header") ||
+    (preEl.previousElementSibling?.classList.contains("code-header") ? preEl.previousElementSibling : null);
 
-  // If already wrapped in .code-block-wrapper, just run Prism
-  if (!preEl.parentElement || !preEl.parentElement.classList.contains("code-block-wrapper")) {
+  if (!rawLang && existingHeader) {
+    const spanText = existingHeader.querySelector("span")?.textContent?.trim();
+    if (spanText && spanText.toLowerCase() !== "code") {
+      rawLang = spanText;
+    }
+  }
+
+  const lang = normalizeLanguageSlug(rawLang);
+  const displayLabel = getLanguageDisplayName(lang);
+
+  if (lang !== "text") {
+    codeEl.className = `language-${lang}`;
+    preEl.className = `language-${lang}`;
+  }
+
+  if (existingHeader) {
+    // Markdown header already present: update display label and wire copy button in-place
+    const labelSpan = existingHeader.querySelector("span") || existingHeader.querySelector(".code-lang-label");
+    if (labelSpan && displayLabel && displayLabel !== "CODE") {
+      labelSpan.textContent = displayLabel;
+    }
+    const copyBtn = existingHeader.querySelector(".copy-code-btn, .code-copy-btn");
+    if (copyBtn && !copyBtn.dataset.prismWired) {
+      copyBtn.dataset.prismWired = "true";
+      copyBtn.addEventListener("click", () => {
+        copyToClipboard(codeEl.innerText, copyBtn, "Copy");
+      });
+    }
+  } else if (!existingWrapper) {
+    // Standalone <pre> without any wrapper or header: inject a single wrapper
     const wrapper = document.createElement("div");
     wrapper.className = "code-block-wrapper";
 
@@ -645,7 +706,7 @@ export function highlightCodeBlock(preEl) {
 
     const langLabel = document.createElement("span");
     langLabel.className = "code-lang-label";
-    langLabel.textContent = lang.toUpperCase();
+    langLabel.textContent = displayLabel;
 
     const copyBtn = document.createElement("button");
     copyBtn.className = "code-copy-btn";
@@ -673,11 +734,11 @@ export function highlightCodeBlock(preEl) {
   preEl.dataset.prismEnhanced = "true";
 
   // Invoke Prism highlighter if available
-  if (window.Prism && typeof window.Prism.highlightElement === "function") {
+  if (window.Prism && typeof window.Prism.highlightElement === "function" && lang !== "text") {
     try {
       window.Prism.highlightElement(codeEl);
     } catch {
-      // Graceful fallback to raw code if grammar component is streaming
+      // Graceful fallback to raw code
     }
   }
 }
@@ -720,7 +781,8 @@ window.initSyntaxHighlighting = initSyntaxHighlighting;
 
 
 /* =============================================================================
-   BATCH 4 - [21] FULL-SCREEN MOBILE DIAGRAM INSPECTION FOR RENDER_DIAGRAM SVGS
+   BATCH 4 - [21] CLEAN FULL-SCREEN MEDIA VIEWER WITH ANNOTATION & SKETCH TOOLS
+   Supports both <img> and cloned <svg> with zoom, pan, sketch, text, swatches, undo/redo
    ============================================================================= */
 
 let diagramScale = 1;
@@ -729,11 +791,30 @@ let diagramPanY = 0;
 let isPanning = false;
 let startPointerX = 0;
 let startPointerY = 0;
-let currentRawSvg = "";
+
+let currentMediaType = "svg"; // 'svg' | 'image'
+let currentRawData = "";
+let currentMediaFilename = "jarvis-media";
+
+// Annotation State
+let annotMode = "pan"; // 'pan' | 'pen' | 'text'
+let annotColor = "#ef4444";
+let isDrawing = false;
+let lastDrawX = 0;
+let lastDrawY = 0;
+const undoStack = [];
+const redoStack = [];
 
 // Multi-touch pinch tracking for mobile
 let initialTouchDistance = 0;
 let initialPinchScale = 1;
+
+function getActiveColorValue() {
+  if (annotColor === "contrast") {
+    return state.theme === "light" ? "#18181b" : "#f4f4f5";
+  }
+  return annotColor;
+}
 
 function updateDiagramTransform() {
   const content = $("diagram-svg-container");
@@ -754,49 +835,247 @@ export function resetDiagramView() {
 }
 
 export function zoomDiagram(delta) {
-  const newScale = Math.min(Math.max(diagramScale + delta, 0.25), 6.0);
+  const newScale = Math.min(Math.max(diagramScale + delta, 0.2), 6.0);
   diagramScale = Math.round(newScale * 100) / 100;
   updateDiagramTransform();
 }
 
-/**
- * Opens full-screen diagram inspection modal.
- */
-export function openDiagramModal(svgElementOrHtml, title = "Diagram Inspector") {
-  const modal = $("diagram-modal");
-  const container = $("diagram-svg-container");
-  const titleEl = $("diagram-title");
-  if (!modal || !container) return;
+function saveAnnotSnapshot() {
+  const canvas = $("diagram-annot-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || canvas.width === 0 || canvas.height === 0) return;
+  try {
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    undoStack.push(data);
+    if (undoStack.length > 30) undoStack.shift();
+    redoStack.length = 0; // Clear redo on new action
+  } catch {
+    // Ignore canvas security errors on cross-origin
+  }
+}
 
-  container.innerHTML = "";
-  let svgMarkup = "";
+export function undoAnnotation() {
+  const canvas = $("diagram-annot-canvas");
+  if (!canvas || undoStack.length <= 1) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
-  if (typeof svgElementOrHtml === "string") {
-    container.innerHTML = svgElementOrHtml;
-    svgMarkup = svgElementOrHtml;
-  } else if (svgElementOrHtml instanceof SVGElement || svgElementOrHtml instanceof HTMLElement) {
-    const clone = svgElementOrHtml.cloneNode(true);
-    container.appendChild(clone);
-    svgMarkup = clone.outerHTML || "";
+  const current = undoStack.pop();
+  redoStack.push(current);
+  const prev = undoStack[undoStack.length - 1];
+  if (prev) {
+    ctx.putImageData(prev, 0, 0);
+  }
+}
+
+export function redoAnnotation() {
+  const canvas = $("diagram-annot-canvas");
+  if (!canvas || redoStack.length === 0) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const next = redoStack.pop();
+  undoStack.push(next);
+  ctx.putImageData(next, 0, 0);
+}
+
+export function clearAnnotations() {
+  const canvas = $("diagram-annot-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  saveAnnotSnapshot();
+}
+
+function syncCanvasSize() {
+  const canvas = $("diagram-annot-canvas");
+  const mediaLayer = $("diagram-media-layer");
+  if (!canvas || !mediaLayer) return;
+
+  const rect = mediaLayer.getBoundingClientRect();
+  const w = Math.max(Math.round(rect.width), 320);
+  const h = Math.max(Math.round(rect.height), 240);
+
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    undoStack.length = 0;
+    redoStack.length = 0;
+    saveAnnotSnapshot();
+  }
+}
+
+export function setAnnotMode(mode) {
+  annotMode = mode;
+  const viewer = $("diagram-viewer");
+  if (viewer) {
+    viewer.classList.toggle("drawing-mode", mode === "pen" || mode === "text");
   }
 
-  currentRawSvg = svgMarkup;
-  if (titleEl) titleEl.textContent = title;
-
-  resetDiagramView();
-  modal.classList.remove("hidden");
+  document.querySelectorAll(".annot-btn[id^='annot-mode-']").forEach((btn) => {
+    btn.classList.toggle("active", btn.id === `annot-mode-${mode}`);
+  });
 }
 
 /**
- * Closes diagram modal.
+ * Opens full-screen media & diagram inspection modal.
+ * Supports both <img> and cloned <svg> elements visibly centered without collapsing.
+ */
+export function openDiagramModal(mediaElementOrHtml, title = "Media Inspector") {
+  const modal = $("diagram-modal");
+  const mediaLayer = $("diagram-media-layer");
+  const titleEl = $("diagram-title");
+  if (!modal || !mediaLayer) return;
+
+  mediaLayer.innerHTML = "";
+  currentRawData = "";
+
+  if (typeof mediaElementOrHtml === "string") {
+    const raw = mediaElementOrHtml.trim();
+    if (raw.startsWith("<svg") || raw.includes("<svg")) {
+      currentMediaType = "svg";
+      currentMediaFilename = "jarvis-diagram.svg";
+      currentRawData = raw;
+      mediaLayer.innerHTML = raw;
+      const svgEl = mediaLayer.querySelector("svg");
+      if (svgEl) {
+        if (!svgEl.getAttribute("viewBox")) {
+          const w = svgEl.getAttribute("width") || "800";
+          const h = svgEl.getAttribute("height") || "600";
+          svgEl.setAttribute("viewBox", `0 0 ${parseInt(w, 10) || 800} ${parseInt(h, 10) || 600}`);
+        }
+        svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      }
+    } else {
+      currentMediaType = "image";
+      currentMediaFilename = "jarvis-visual.png";
+      currentRawData = raw;
+      const img = document.createElement("img");
+      img.src = raw;
+      img.alt = title;
+      mediaLayer.appendChild(img);
+    }
+  } else if (mediaElementOrHtml instanceof SVGElement) {
+    currentMediaType = "svg";
+    currentMediaFilename = "jarvis-diagram.svg";
+    const clone = mediaElementOrHtml.cloneNode(true);
+    if (!clone.getAttribute("viewBox")) {
+      const rect = mediaElementOrHtml.getBoundingClientRect();
+      clone.setAttribute("viewBox", `0 0 ${Math.max(rect.width, 300)} ${Math.max(rect.height, 200)}`);
+    }
+    clone.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    mediaLayer.appendChild(clone);
+    currentRawData = clone.outerHTML || "";
+  } else if (mediaElementOrHtml instanceof HTMLImageElement) {
+    currentMediaType = "image";
+    currentMediaFilename = "jarvis-visual.png";
+    const clone = mediaElementOrHtml.cloneNode(true);
+    mediaLayer.appendChild(clone);
+    currentRawData = clone.src || "";
+  } else if (mediaElementOrHtml instanceof HTMLElement) {
+    const innerSvg = mediaElementOrHtml.querySelector("svg");
+    const innerImg = mediaElementOrHtml.querySelector("img");
+    if (innerSvg) {
+      return openDiagramModal(innerSvg, title);
+    } else if (innerImg) {
+      return openDiagramModal(innerImg, title);
+    }
+  }
+
+  if (titleEl) {
+    titleEl.textContent = title || (currentMediaType === "svg" ? "Diagram Inspector" : "Visual Inspector");
+  }
+
+  resetDiagramView();
+  setAnnotMode("pan");
+  modal.classList.remove("hidden");
+
+  // Ensure canvas dimensions match media surface
+  requestAnimationFrame(() => {
+    syncCanvasSize();
+  });
+}
+
+/**
+ * Closes media modal.
  */
 export function closeDiagramModal() {
   const modal = $("diagram-modal");
   if (modal) modal.classList.add("hidden");
-  const container = $("diagram-svg-container");
-  if (container) container.innerHTML = "";
-  currentRawSvg = "";
+  const mediaLayer = $("diagram-media-layer");
+  if (mediaLayer) mediaLayer.innerHTML = "";
+  currentRawData = "";
   resetDiagramView();
+}
+
+/**
+ * Downloads the current media (or composited annotations).
+ */
+export function downloadCurrentMedia() {
+  const canvas = $("diagram-annot-canvas");
+  const hasAnnotations = undoStack.length > 1;
+
+  if (hasAnnotations && canvas) {
+    // Composite media + annotations onto download canvas
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = canvas.width;
+    exportCanvas.height = canvas.height;
+    const ctx = exportCanvas.getContext("2d");
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, exportCanvas.width, exportCanvas.height);
+      ctx.drawImage(canvas, 0, 0);
+      const link = document.createElement("a");
+      link.download = `jarvis-annotated-${Date.now()}.png`;
+      link.href = exportCanvas.toDataURL("image/png");
+      link.click();
+    };
+
+    if (currentMediaType === "svg") {
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(currentRawData);
+    } else {
+      img.src = currentRawData;
+    }
+    return;
+  }
+
+  // Direct download
+  const link = document.createElement("a");
+  if (currentMediaType === "svg") {
+    link.href = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(currentRawData);
+    link.download = "jarvis-diagram.svg";
+  } else {
+    link.href = currentRawData;
+    link.download = currentMediaFilename;
+  }
+  link.click();
+}
+
+/**
+ * Copies the active media to clipboard.
+ */
+export async function copyCurrentMedia(btnEl) {
+  if (currentMediaType === "svg" && currentRawData) {
+    copyToClipboard(currentRawData, btnEl, "Copy SVG");
+  } else if (currentMediaType === "image" && currentRawData) {
+    try {
+      const res = await fetch(currentRawData);
+      const blob = await res.blob();
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      if (btnEl) {
+        btnEl.textContent = "Copied";
+        setTimeout(() => { btnEl.textContent = "Copy"; }, 1500);
+      }
+    } catch {
+      copyToClipboard(currentRawData, btnEl, "Copy URL");
+    }
+  }
 }
 
 /**
@@ -805,26 +1084,114 @@ export function closeDiagramModal() {
 export function initDiagramInspection() {
   const modal = $("diagram-modal");
   const viewer = $("diagram-viewer");
+  const canvas = $("diagram-annot-canvas");
   const closeBtn = $("diagram-close-btn");
   const zoomInBtn = $("diagram-zoom-in-btn");
   const zoomOutBtn = $("diagram-zoom-out-btn");
   const resetBtn = $("diagram-reset-btn");
+  const downloadBtn = $("diagram-download-btn");
   const copyBtn = $("diagram-copy-btn");
   const messagesContainer = $("messages-container");
 
   if (!modal || !viewer) return;
 
   if (closeBtn) closeBtn.addEventListener("click", closeDiagramModal);
-  if (zoomInBtn) zoomInBtn.addEventListener("click", () => zoomDiagram(0.25));
-  if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => zoomDiagram(-0.25));
+  if (zoomInBtn) zoomInBtn.addEventListener("click", () => zoomDiagram(0.2));
+  if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => zoomDiagram(-0.2));
   if (resetBtn) resetBtn.addEventListener("click", resetDiagramView);
+  if (downloadBtn) downloadBtn.addEventListener("click", downloadCurrentMedia);
+  if (copyBtn) copyBtn.addEventListener("click", () => copyCurrentMedia(copyBtn));
 
-  if (copyBtn) {
-    copyBtn.addEventListener("click", () => {
-      if (currentRawSvg) {
-        copyToClipboard(currentRawSvg, copyBtn, "Copy SVG");
+  // Annotation Mode Switchers
+  const panBtn = $("annot-mode-pan");
+  const penBtn = $("annot-mode-pen");
+  const textBtn = $("annot-mode-text");
+  const undoBtn = $("annot-undo-btn");
+  const redoBtn = $("annot-redo-btn");
+  const clearBtn = $("annot-clear-btn");
+
+  if (panBtn) panBtn.addEventListener("click", () => setAnnotMode("pan"));
+  if (penBtn) penBtn.addEventListener("click", () => setAnnotMode("pen"));
+  if (textBtn) textBtn.addEventListener("click", () => setAnnotMode("text"));
+  if (undoBtn) undoBtn.addEventListener("click", undoAnnotation);
+  if (redoBtn) redoBtn.addEventListener("click", redoAnnotation);
+  if (clearBtn) clearBtn.addEventListener("click", clearAnnotations);
+
+  // Color Swatches
+  document.querySelectorAll(".annot-swatch").forEach((swatch) => {
+    swatch.addEventListener("click", () => {
+      document.querySelectorAll(".annot-swatch").forEach((s) => s.classList.remove("active"));
+      swatch.classList.add("active");
+      annotColor = swatch.dataset.color || "#ef4444";
+      if (annotMode === "pan") setAnnotMode("pen");
+    });
+  });
+
+  // Canvas Drawing & Annotation Events
+  if (canvas) {
+    const getCanvasPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
+    };
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (annotMode === "pan") return;
+      const pos = getCanvasPos(e);
+
+      if (annotMode === "pen") {
+        isDrawing = true;
+        lastDrawX = pos.x;
+        lastDrawY = pos.y;
+        const ctx = canvas.getContext("2d");
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = getActiveColorValue();
+        ctx.fill();
+      } else if (annotMode === "text") {
+        const text = prompt("Annotation text:");
+        if (text && text.trim()) {
+          const ctx = canvas.getContext("2d");
+          ctx.font = "bold 15px 'Inter', sans-serif";
+          ctx.fillStyle = getActiveColorValue();
+          ctx.shadowColor = "rgba(0,0,0,0.5)";
+          ctx.shadowBlur = 4;
+          ctx.fillText(text.trim(), pos.x, pos.y);
+          ctx.shadowBlur = 0;
+          saveAnnotSnapshot();
+        }
       }
     });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!isDrawing || annotMode !== "pen") return;
+      const pos = getCanvasPos(e);
+      const ctx = canvas.getContext("2d");
+      ctx.beginPath();
+      ctx.moveTo(lastDrawX, lastDrawY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = getActiveColorValue();
+      ctx.lineWidth = 2.8;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.stroke();
+      lastDrawX = pos.x;
+      lastDrawY = pos.y;
+    });
+
+    const stopDrawing = () => {
+      if (isDrawing) {
+        isDrawing = false;
+        saveAnnotSnapshot();
+      }
+    };
+
+    canvas.addEventListener("pointerup", stopDrawing);
+    canvas.addEventListener("pointercancel", stopDrawing);
   }
 
   // Close on backdrop click (outside sheet)
@@ -832,17 +1199,30 @@ export function initDiagramInspection() {
     if (e.target === modal) closeDiagramModal();
   });
 
-  // Keyboard navigation
+  // Keyboard navigation & tools
   window.addEventListener("keydown", (e) => {
     if (modal.classList.contains("hidden")) return;
     if (e.key === "Escape") {
       closeDiagramModal();
     } else if (e.key === "+" || e.key === "=") {
-      zoomDiagram(0.25);
+      zoomDiagram(0.2);
     } else if (e.key === "-") {
-      zoomDiagram(-0.25);
+      zoomDiagram(-0.2);
     } else if (e.key === "0") {
       resetDiagramView();
+    } else if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (e.shiftKey) redoAnnotation();
+      else undoAnnotation();
+    } else if ((e.key === "y" || e.key === "Y") && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      redoAnnotation();
+    } else if (e.key.toLowerCase() === "v") {
+      setAnnotMode("pan");
+    } else if (e.key.toLowerCase() === "p") {
+      setAnnotMode("pen");
+    } else if (e.key.toLowerCase() === "t") {
+      setAnnotMode("text");
     }
   });
 
@@ -853,8 +1233,9 @@ export function initDiagramInspection() {
     zoomDiagram(delta);
   }, { passive: false });
 
-  // Pointer Drag & Pan (Mouse + Single Touch)
+  // Pointer Drag & Pan (when in Pan mode or holding middle-button)
   viewer.addEventListener("pointerdown", (e) => {
+    if (annotMode !== "pan" && e.button !== 1 && !e.spaceKey) return;
     if (e.pointerType === "touch" && !e.isPrimary) return;
     isPanning = true;
     startPointerX = e.clientX - diagramPanX;
@@ -900,7 +1281,7 @@ export function initDiagramInspection() {
       const t2 = e.touches[1];
       const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
       const ratio = currentDist / initialTouchDistance;
-      const newScale = Math.min(Math.max(initialPinchScale * ratio, 0.25), 6.0);
+      const newScale = Math.min(Math.max(initialPinchScale * ratio, 0.2), 6.0);
       diagramScale = Math.round(newScale * 100) / 100;
       updateDiagramTransform();
     }
@@ -910,53 +1291,52 @@ export function initDiagramInspection() {
     initialTouchDistance = 0;
   });
 
-  // Attach tap-to-expand listeners on SVGs and render_diagram containers in chat
-  function enhanceDiagrams(scope = document) {
-    // Select any rendered SVG in messages that is larger than 60x60 (to exclude tiny inline icons)
-    const svgs = scope.querySelectorAll(".render-diagram-container svg, .chat-diagram svg, #messages-container svg");
-    svgs.forEach((svg) => {
-      // Exclude small action icons
-      const bbox = svg.getBoundingClientRect();
-      if ((bbox.width > 0 && bbox.width < 50) || (bbox.height > 0 && bbox.height < 50)) return;
-
-      const parent = svg.closest(".render-diagram-container, .chat-diagram-wrapper") || svg.parentElement;
-      if (parent && !parent.querySelector(".diagram-tap-hint")) {
-        parent.classList.add("render-diagram-container");
-        const hint = document.createElement("div");
-        hint.className = "diagram-tap-hint";
-        hint.innerHTML = `
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <polyline points="9 21 3 21 3 15"></polyline>
-            <line x1="21" y1="3" x2="14" y2="10"></line>
-            <line x1="3" y1="21" x2="10" y2="14"></line>
-          </svg>
-          <span>Tap to inspect full screen</span>
-        `;
-        parent.appendChild(hint);
+  // Delegated click on any inline media (images, diagrams, SVGs)
+  if (messagesContainer) {
+    messagesContainer.addEventListener("click", (e) => {
+      // Find media element clicked
+      const mediaCard = e.target.closest(".media-card, .render-diagram-container, .chat-diagram-wrapper");
+      if (mediaCard) {
+        const svg = mediaCard.querySelector("svg");
+        const img = mediaCard.querySelector("img");
+        if (svg) {
+          openDiagramModal(svg, "Diagram Inspector");
+          return;
+        }
+        if (img) {
+          openDiagramModal(img, "Visual Inspector");
+          return;
+        }
       }
 
-      svg.style.cursor = "pointer";
-      svg.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openDiagramModal(svg, "Circuit & Engineering Diagram");
-      });
+      // Check if raw svg or img clicked inside a chat row
+      if (e.target.tagName === "IMG" && !e.target.closest(".profile-avatar, .ai-avatar, .preview-thumb")) {
+        openDiagramModal(e.target, "Visual Inspector");
+      } else if (e.target.tagName === "svg" || e.target.closest("svg")) {
+        const svg = e.target.tagName === "svg" ? e.target : e.target.closest("svg");
+        const rect = svg.getBoundingClientRect();
+        if (rect.width > 50 && rect.height > 50 && !svg.closest("button, .ai-avatar, .sidebar-brand")) {
+          openDiagramModal(svg, "Diagram Inspector");
+        }
+      }
     });
-  }
 
-  if (messagesContainer) {
-    enhanceDiagrams(messagesContainer);
-
-    const diagramObserver = new MutationObserver(() => {
-      enhanceDiagrams(messagesContainer);
-      // Also scan for inline text briefings
+    const observer = new MutationObserver(() => {
       const messages = messagesContainer.querySelectorAll(".assistant-message, .chat-message");
       messages.forEach((msg) => parseAndRenderInlineBriefings(msg));
     });
-
-    diagramObserver.observe(messagesContainer, { childList: true, subtree: true });
+    observer.observe(messagesContainer, { childList: true, subtree: true });
   }
 }
+
+window.openDiagramModal = openDiagramModal;
+window.closeDiagramModal = closeDiagramModal;
+window.initDiagramInspection = initDiagramInspection;
+window.undoAnnotation = undoAnnotation;
+window.redoAnnotation = redoAnnotation;
+window.clearAnnotations = clearAnnotations;
+window.setAnnotMode = setAnnotMode;
+window.downloadCurrentMedia = downloadCurrentMedia;
 
 window.openDiagramModal = openDiagramModal;
 window.closeDiagramModal = closeDiagramModal;
