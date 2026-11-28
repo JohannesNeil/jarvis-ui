@@ -13,10 +13,21 @@
   <link rel="stylesheet" href="./css/layout.css" />
   <link rel="stylesheet" href="./css/chat.css" />
   <link rel="stylesheet" href="./css/workspace.css" />
+  <link rel="stylesheet" href="./css/theme.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-verilog.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
   <script type="module" src="./js/app.js"></script>
 </head>
 <body>
@@ -43,6 +54,46 @@
         </div>
       </div>
       <div id="select-sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- FULL-SCREEN DIAGRAM INSPECTION MODAL -->
+  <div id="diagram-modal" class="modal-backdrop diagram-modal hidden" role="dialog" aria-modal="true" aria-label="Diagram Inspection">
+    <div class="diagram-sheet">
+      <div class="diagram-sheet-header">
+        <div class="diagram-title-row">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <span id="diagram-title" class="diagram-title">Diagram Inspector</span>
+          <span id="diagram-zoom-level" class="diagram-zoom-level">100%</span>
+        </div>
+        <div class="diagram-actions">
+          <button id="diagram-zoom-out-btn" class="diagram-action-btn" type="button" title="Zoom Out (Ctrl -)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <button id="diagram-zoom-in-btn" class="diagram-action-btn" type="button" title="Zoom In (Ctrl +)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <button id="diagram-reset-btn" class="diagram-action-btn" type="button" title="Reset View">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          </button>
+          <button id="diagram-copy-btn" class="diagram-action-btn" type="button" title="Copy SVG">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+          <button id="diagram-close-btn" class="diagram-action-btn close-btn" type="button" title="Close (Esc)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+      <div id="diagram-viewer" class="diagram-viewer-surface">
+        <div id="diagram-svg-container" class="diagram-svg-content"></div>
+      </div>
+      <div class="diagram-footer-hints">
+        <span>Tap / Pinch / Drag to inspect diagram &bull; Esc to exit</span>
+      </div>
     </div>
   </div>
 
@@ -263,6 +314,22 @@
         <div class="chat-container">
           <!-- CLEAN EMPTY STATE -->
           <div id="welcome-view">
+            <!-- Glowing Concentric Radial HUD Core Centerpiece -->
+            <div id="hud-core" class="hud-core idle" data-state="idle" title="J.A.R.V.I.S. Core Matrix (Click to test states)">
+              <div class="hud-outer-glow"></div>
+              <div class="hud-ring hud-ring-1"></div>
+              <div class="hud-ring hud-ring-2"></div>
+              <div class="hud-ring hud-ring-3"></div>
+              <div class="hud-radar-sweep"></div>
+              <div class="hud-core-center">
+                <div class="hud-core-dot"></div>
+              </div>
+              <div class="hud-state-badge">
+                <span class="hud-state-indicator"></span>
+                <span id="hud-state-text" class="hud-state-text">CORE ONLINE</span>
+              </div>
+            </div>
+
             <h1 class="welcome-heading">At your service, sir.</h1>
             <p class="welcome-sub">Ready for calculus derivations, Civil/Mechanical/Electrical analysis, and full-file debugging.</p>
             <div class="chip-strip">
@@ -279,6 +346,9 @@
                 Quiz from Vault
               </button>
             </div>
+
+            <!-- Translucent Glassmorphic Briefing Slot -->
+            <div id="welcome-briefing-slot" class="welcome-briefing-slot"></div>
           </div>
 
           <!-- ACTIVE MESSAGES STREAM -->
