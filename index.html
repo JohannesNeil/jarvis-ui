@@ -358,16 +358,9 @@
         <div class="chat-container">
           <!-- CLEAN EMPTY STATE -->
           <div id="welcome-view">
-            <!-- Glowing Concentric Radial HUD Core Centerpiece -->
-            <div id="hud-core" class="hud-core idle" data-state="idle" title="J.A.R.V.I.S. Core Matrix (Click to test states)">
-              <div class="hud-outer-glow"></div>
-              <div class="hud-ring hud-ring-1"></div>
-              <div class="hud-ring hud-ring-2"></div>
-              <div class="hud-ring hud-ring-3"></div>
-              <div class="hud-radar-sweep"></div>
-              <div class="hud-core-center">
-                <div class="hud-core-dot"></div>
-              </div>
+            <!-- Particle-Torus HUD Core Centerpiece -->
+            <div id="hud-core" class="hud-core idle" data-state="idle" title="J.A.R.V.I.S. Core Matrix (Click to toggle pulse states)">
+              <canvas id="hud-canvas" class="hud-canvas"></canvas>
               <div class="hud-state-badge">
                 <span class="hud-state-indicator"></span>
                 <span id="hud-state-text" class="hud-state-text">CORE ONLINE</span>

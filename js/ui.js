@@ -139,9 +139,298 @@ export function closeServerModal() {
 
 
 /* =============================================================================
-   BATCH 4 - [18] ANIMATED CONCENTRIC HUD CORE
+   BATCH 4 - [18] 60FPS HTML5 CANVAS PARTICLE-TORUS HUD CORE
+   Blooming radial spark ring lifecycle with dual-theme jewel/spectral gradients
    ============================================================================= */
 let currentHudState = "idle"; // 'idle' | 'thinking' | 'responding'
+let hudAnimFrameId = null;
+let isHudAnimRunning = false;
+
+const HUD_BASE_DIAMETER = 200;
+const HUD_CENTER = HUD_BASE_DIAMETER / 2; // 100px
+const HUD_MAX_RADIUS = 88;
+const HUD_MIN_RADIUS = 6;
+const HUD_TORUS_CENTER_RADIUS = 46;
+
+class TorusParticle {
+  constructor() {
+    this.reset(true);
+  }
+
+  reset(isInitial = false) {
+    this.angle = Math.random() * Math.PI * 2;
+    // Stagger progress across life cycle [0, 1] so centerpiece is never blank
+    this.progress = isInitial ? Math.random() : 0;
+    this.speed = 0.005 + Math.random() * 0.006;
+    this.angularVelocity = (0.004 + Math.random() * 0.006) * (Math.random() < 0.5 ? 1 : -1);
+    this.ringVariance = (Math.random() - 0.5) * 18;
+    this.size = 0.8 + Math.random() * 1.5;
+    this.streakLength = 2.4 + Math.random() * 3.2;
+    this.sparklePhase = Math.random() * Math.PI * 2;
+    this.sparkleSpeed = 0.08 + Math.random() * 0.12;
+  }
+
+  update(stateConfig) {
+    const { speedMult, swirlMult, coreJitter } = stateConfig;
+
+    this.progress += this.speed * speedMult;
+    if (this.progress >= 1.0) {
+      this.reset(false);
+    }
+
+    // Angular orbital drift
+    this.angle += this.angularVelocity * swirlMult;
+
+    const p = this.progress;
+    let r = 0;
+
+    // 4-Phase Radial Bloom Lifecycle:
+    // a) Ignition (0.0 - 0.18): spawns near center, accelerates outward radially
+    if (p < 0.18) {
+      const t = p / 0.18;
+      const eased = t * t;
+      r = HUD_MIN_RADIUS + (HUD_TORUS_CENTER_RADIUS * 0.65 - HUD_MIN_RADIUS) * eased;
+    }
+    // b) Torus Formation (0.18 - 0.65): hollow-centered ring with orbital drift
+    else if (p < 0.65) {
+      const t = (p - 0.18) / (0.65 - 0.18);
+      const startR = HUD_TORUS_CENTER_RADIUS * 0.65;
+      const targetR = HUD_TORUS_CENTER_RADIUS + this.ringVariance;
+      const smooth = t * t * (3 - 2 * t);
+      r = startR + (targetR - startR) * smooth;
+    }
+    // d) Ember Dissipation (0.65 - 1.0): outer tips decelerate, twinkle & fade smoothly
+    else {
+      const t = (p - 0.65) / (1.0 - 0.65);
+      const startR = HUD_TORUS_CENTER_RADIUS + this.ringVariance;
+      const endR = HUD_MAX_RADIUS + this.ringVariance * 0.4;
+      const eased = Math.sin((t * Math.PI) / 2);
+      r = startR + (endR - startR) * eased;
+    }
+
+    if (coreJitter > 0 && p < 0.28) {
+      r += (Math.random() - 0.5) * coreJitter;
+    }
+
+    this.x = HUD_CENTER + Math.cos(this.angle) * r;
+    this.y = HUD_CENTER + Math.sin(this.angle) * r;
+
+    this.sparklePhase += this.sparkleSpeed;
+  }
+}
+
+let hudParticles = [];
+
+function getParticleColor(progress, isLightMode) {
+  const p = Math.max(0, Math.min(1, progress));
+  let r = 0, g = 0, b = 0;
+
+  if (isLightMode) {
+    // Light Mode: High-contrast rich jewel tones for crisp rendering on #FAF9F6
+    if (p < 0.25) {
+      // Phase 1: Deep cyan-teal -> cobalt blue
+      const t = p / 0.25;
+      r = Math.round(14 * (1 - t) + 29 * t);
+      g = Math.round(116 * (1 - t) + 78 * t);
+      b = Math.round(144 * (1 - t) + 216 * t);
+    } else if (p < 0.65) {
+      // Phase 2: Cobalt blue -> royal violet -> rich plum
+      const t = (p - 0.25) / 0.40;
+      r = Math.round(29 * (1 - t) + 124 * t);
+      g = Math.round(78 * (1 - t) + 28 * t);
+      b = Math.round(216 * (1 - t) + 120 * t);
+    } else {
+      // Phase 3: Rich plum -> warm coral ruby
+      const t = (p - 0.65) / 0.35;
+      r = Math.round(124 * (1 - t) + 225 * t);
+      g = Math.round(28 * (1 - t) + 29 * t);
+      b = Math.round(120 * (1 - t) + 72 * t);
+    }
+  } else {
+    // Dark Mode: Electric spectral gradient with bright luminescence
+    if (p < 0.25) {
+      // Phase 1: Bright cyan/white -> electric sky-blue
+      const t = p / 0.25;
+      r = Math.round(220 * (1 - t) + 56 * t);
+      g = Math.round(250 * (1 - t) + 189 * t);
+      b = Math.round(255 * (1 - t) + 248 * t);
+    } else if (p < 0.65) {
+      // Phase 2: Electric sky-blue -> violet-magenta
+      const t = (p - 0.25) / 0.40;
+      r = Math.round(56 * (1 - t) + 192 * t);
+      g = Math.round(189 * (1 - t) + 72 * t);
+      b = Math.round(248 * (1 - t) + 210 * t);
+    } else {
+      // Phase 3: Violet-magenta -> warm coral / red-orange
+      const t = (p - 0.65) / 0.35;
+      r = Math.round(192 * (1 - t) + 249 * t);
+      g = Math.round(72 * (1 - t) + 115 * t);
+      b = Math.round(210 * (1 - t) + 22 * t);
+    }
+  }
+
+  return { r, g, b };
+}
+
+function renderHudFrame(timestamp = 0) {
+  const canvas = $("hud-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const isLightMode = state.theme === "light";
+
+  // Clear canvas (100% transparent background)
+  ctx.clearRect(0, 0, HUD_BASE_DIAMETER, HUD_BASE_DIAMETER);
+
+  // State parameter modulation
+  let speedMult = 1.0;
+  let swirlMult = 1.0;
+  let streakMult = 1.0;
+  let coreJitter = 0;
+  let targetParticleCount = 180;
+  let harmonicPulse = 0;
+
+  if (currentHudState === "thinking") {
+    speedMult = 1.7;
+    swirlMult = 2.7;
+    streakMult = 1.3;
+    coreJitter = 2.8;
+    targetParticleCount = 250;
+    harmonicPulse = Math.sin(timestamp * 0.009) * 3.5;
+  } else if (currentHudState === "responding") {
+    speedMult = 1.35;
+    swirlMult = 1.5;
+    streakMult = 1.6;
+    coreJitter = 1.0;
+    targetParticleCount = 210;
+    harmonicPulse = Math.sin(timestamp * 0.005) * 5.5; // Outward harmonic burst
+  } else {
+    // idle
+    speedMult = 1.0;
+    swirlMult = 1.0;
+    streakMult = 1.0;
+    coreJitter = 0;
+    targetParticleCount = 180;
+    harmonicPulse = Math.sin(timestamp * 0.0025) * 2.0;
+  }
+
+  const stateConfig = { speedMult, swirlMult, streakMult, coreJitter, harmonicPulse };
+
+  // Adjust particle count smoothly
+  while (hudParticles.length < targetParticleCount) {
+    hudParticles.push(new TorusParticle());
+  }
+  if (hudParticles.length > targetParticleCount) {
+    hudParticles.length = targetParticleCount;
+  }
+
+  // Blend mode: Dark mode uses additive lighter for glowing aura; Light mode uses source-over for crisp jewel ink
+  ctx.globalCompositeOperation = isLightMode ? "source-over" : "lighter";
+
+  // Draw subtle center guide rings
+  const guideAlpha = isLightMode ? 0.08 : 0.14;
+  ctx.beginPath();
+  ctx.arc(HUD_CENTER, HUD_CENTER, HUD_TORUS_CENTER_RADIUS + harmonicPulse * 0.5, 0, Math.PI * 2);
+  ctx.strokeStyle = isLightMode ? `rgba(24, 24, 27, ${guideAlpha * 0.6})` : `rgba(255, 255, 255, ${guideAlpha})`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(HUD_CENTER, HUD_CENTER, 8, 0, Math.PI * 2);
+  ctx.fillStyle = isLightMode ? "rgba(14, 116, 144, 0.4)" : "rgba(220, 250, 255, 0.5)";
+  ctx.fill();
+
+  // Update & Render each particle in the blooming torus
+  for (const p of hudParticles) {
+    p.update(stateConfig);
+
+    const prog = p.progress;
+    let alpha = 1.0;
+
+    // Phase opacity curve:
+    // Ignition fade-in
+    if (prog < 0.12) {
+      alpha = prog / 0.12;
+    }
+    // Torus dwell
+    else if (prog <= 0.65) {
+      alpha = 0.85 + 0.15 * Math.sin(p.sparklePhase);
+    }
+    // Ember dissipation fade-out
+    else {
+      const fadeT = (prog - 0.65) / 0.35;
+      alpha = Math.max(0, (1 - fadeT) * (0.8 + 0.2 * Math.sin(p.sparklePhase * 2)));
+    }
+
+    if (alpha <= 0.01) continue;
+
+    const { r, g, b } = getParticleColor(prog, isLightMode);
+
+    // Radial streak dash calculation
+    const dx = p.x - HUD_CENTER;
+    const dy = p.y - HUD_CENTER;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
+
+    const streakLen = p.streakLength * (0.6 + prog * 0.8) * streakMult;
+    const tailX = p.x - nx * streakLen;
+    const tailY = p.y - ny * streakLen;
+
+    // Draw streak
+    ctx.beginPath();
+    ctx.moveTo(tailX, tailY);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * (isLightMode ? 0.9 : 0.8)})`;
+    ctx.lineWidth = p.size;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // Spark head dot
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 0.7, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    ctx.fill();
+  }
+
+  // Reset composite operation
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function hudAnimLoop(timestamp) {
+  const canvas = $("hud-canvas");
+  const welcome = $("welcome-view");
+
+  // Pause automatically if welcome view is hidden or tab is in background
+  if (!canvas || !welcome || welcome.classList.contains("hidden") || welcome.offsetParent === null || document.hidden) {
+    stopHudAnimation();
+    return;
+  }
+
+  renderHudFrame(timestamp);
+  hudAnimFrameId = requestAnimationFrame(hudAnimLoop);
+}
+
+export function startHudAnimation() {
+  if (isHudAnimRunning) return;
+  const canvas = $("hud-canvas");
+  const welcome = $("welcome-view");
+  if (!canvas || !welcome) return;
+  if (welcome.classList.contains("hidden") || welcome.offsetParent === null || document.hidden) {
+    return;
+  }
+  isHudAnimRunning = true;
+  hudAnimFrameId = requestAnimationFrame(hudAnimLoop);
+}
+
+export function stopHudAnimation() {
+  if (hudAnimFrameId) {
+    cancelAnimationFrame(hudAnimFrameId);
+    hudAnimFrameId = null;
+  }
+  isHudAnimRunning = false;
+}
 
 /**
  * Updates the concentric HUD core state with pulse animations and status tag.
@@ -173,6 +462,9 @@ export function setHudState(newState) {
         break;
     }
   }
+
+  // Wake loop if paused
+  startHudAnimation();
 }
 
 export function getHudState() {
@@ -183,7 +475,32 @@ export function initHudCore() {
   const core = $("hud-core");
   if (!core) return;
 
-  // Clicking the HUD core cycles through states for instant inspection and tactile feedback
+  let canvas = $("hud-canvas");
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    canvas.id = "hud-canvas";
+    canvas.className = "hud-canvas";
+    core.prepend(canvas);
+  }
+
+  // Setup High-DPI buffer
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = HUD_BASE_DIAMETER * dpr;
+  canvas.height = HUD_BASE_DIAMETER * dpr;
+  canvas.style.width = `${HUD_BASE_DIAMETER}px`;
+  canvas.style.height = `${HUD_BASE_DIAMETER}px`;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.scale(dpr, dpr);
+  }
+
+  // Initialize particles with staggered progress
+  hudParticles = [];
+  for (let i = 0; i < 180; i++) {
+    hudParticles.push(new TorusParticle());
+  }
+
+  // Clicking the HUD core cycles through states for instant tactile feedback
   core.addEventListener("click", () => {
     const states = ["idle", "thinking", "responding"];
     const nextIdx = (states.indexOf(currentHudState) + 1) % states.length;
@@ -210,11 +527,36 @@ export function initHudCore() {
     });
   }
 
+  // Handle tab visibility change to save CPU/battery
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopHudAnimation();
+    } else {
+      startHudAnimation();
+    }
+  });
+
+  // Observe welcome-view visibility to pause loop when chatting
+  const welcome = $("welcome-view");
+  if (welcome) {
+    const obs = new MutationObserver(() => {
+      if (welcome.classList.contains("hidden") || welcome.offsetParent === null) {
+        stopHudAnimation();
+      } else {
+        startHudAnimation();
+      }
+    });
+    obs.observe(welcome, { attributes: true, attributeFilter: ["class", "style"] });
+  }
+
   setHudState("idle");
+  startHudAnimation();
 }
 
 window.setHudState = setHudState;
 window.getHudState = getHudState;
+window.startHudAnimation = startHudAnimation;
+window.stopHudAnimation = stopHudAnimation;
 
 
 /* =============================================================================
