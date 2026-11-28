@@ -139,239 +139,278 @@ export function closeServerModal() {
 
 
 /* =============================================================================
-   BATCH 5 - [12] 3D AUTONOMOUS PARTICLE ENTITY HUD CORE
-   True 3D depth-sorted cloud with shape morphing, voice sync API, drag rotation
+   BATCH 5 - [12] 3D HOLLOW POINT-CLOUD SPHERE HUD CORE
+   Crisp hollow 3D shell · slow breathing · swipe/drag rotation · voice sync
+   Mobile-reliable, zero clipping, no shadowBlur, no per-particle gradients
    ============================================================================= */
+
+// ---- Core state ----
 let currentHudState = "idle"; // 'idle' | 'thinking' | 'responding'
-let hudAnimFrameId = null;
+let hudAnimFrameId  = null;
 let isHudAnimRunning = false;
 
-const HUD_DIAM = 200;
-const HUD_R = HUD_DIAM / 2; // logical center = 100
-const HUD_SPHERE_R = 82; // max 3D radius
+// Canvas logical size — set at init from actual element, with fallback
+let HUD_W = 210;
+let HUD_H = 210;
 
-// ---- Voice / Audio Sync state ----
-let _hudVoiceLevel = 0;      // 0.0–1.0, set by setHudVoiceLevel or speech envelope
-let _hudAudioAnalyser = null; // Web Audio AnalyserNode (optional, future TTS)
-let _hudAnalyserBuf = null;
+// ---- Voice / Audio Sync ----
+let _hudVoiceLevel   = 0;      // 0.0–1.0
+let _hudAudioAnalyser = null;
+let _hudAnalyserBuf   = null;
 
-// ---- Drag / Swipe Rotation state ----
-let _rotX = 0.28; // radians tilt (around X-axis)
-let _rotY = 0;    // radians spin (around Y-axis)
-let _velX = 0;    // inertia velocity
-let _velY = 0.004; // gentle baseline drift
-let _dragActive = false;
-let _dragLastX = 0;
-let _dragLastY = 0;
-let _dragDeltaX = 0;
-let _dragDeltaY = 0;
-
-// ---- Shape morph state ----
-const SHAPE_DURATION_MS = 7000; // time per shape
-const SHAPES = ["fibonacci", "torus", "helix", "wave", "crystal"];
-let _shapeIdx = 0;
-let _shapeMorphT = 0; // 0→1 blend between _shapeIdx and next
-let _shapeLastMs = 0;
-
-// ---- Breathing / organic drift ----
-let _breathPhase = 0;
-
-// ---- Speech cadence envelope (used when responding with no AudioAnalyser) ----
-let _syllablePhase = 0;
+// ---- Speech cadence (no AudioAnalyser path) ----
 let _syllableEnv = 0;
 const SYLLABLE_PATTERN = [0.9, 0.5, 1.0, 0.3, 0.8, 0.2, 0.95, 0.4, 0.7, 0.15];
-let _syllableIdx = 0;
+let _syllableIdx  = 0;
 let _syllableStep = 0;
 
-/* ---- Shape target generators (return normalized unit vectors * sphere radius) ---- */
+// ---- Rotation state ----
+// Slow baseline: ~0.18 rad/s Y, ~0.07 rad/s X at 60fps → ~0.003 rad/frame Y
+let _rotX = 0.32;   // initial tilt
+let _rotY = 0.0;
+let _velX = 0.0;
+let _velY = 0.003;  // gentle baseline Y drift
+let _dragActive = false;
+let _dragLastX  = 0;
+let _dragLastY  = 0;
+let _dragDeltaX = 0;
+let _dragDeltaY = 0;
+let _lastPointerType = "";  // 'mouse' | 'touch' | 'pen'
+
+// ---- Breathing / hollow shell radius ----
+// Radius breathes between R_MAX (68 px) and R_MIN (44 px) over ~6s
+const HUD_R_MAX = 68;  // outer shell radius at exhale
+const HUD_R_MIN = 44;  // inner hollow radius at inhale — NEVER collapses to 0
+const HUD_BREATH_PERIOD = 6000; // ms per full breath cycle
+let _breathMs = 0; // accumulates real milliseconds
+
+// ---- Shape morph ----
+// 4 clean hollow 3D formations, morph every 9 s
+const SHAPES = ["fibonacci", "torus", "helix", "wave"];
+const SHAPE_DURATION_MS = 9000;
+let _shapeIdx    = 0;
+let _shapeMorphT = 0;
+let _shapeLastMs = 0;
+
+/* -------------------------------------------------------------------------- */
+/* Shape generators — all return unit-sphere normalized coords (‖v‖ ≈ 1)     */
+/* -------------------------------------------------------------------------- */
+
+// Hollow Fibonacci sphere — evenly distributed surface points
 function shapeFibSphere(i, n) {
   const golden = Math.PI * (3 - Math.sqrt(5));
-  const y = 1 - (i / (n - 1)) * 2;
-  const r = Math.sqrt(Math.max(0, 1 - y * y));
-  const theta = golden * i;
-  return { tx: Math.cos(theta) * r, ty: y, tz: Math.sin(theta) * r };
+  const y  = 1 - (i / (n - 1)) * 2;
+  const r  = Math.sqrt(Math.max(0, 1 - y * y));
+  const th = golden * i;
+  return { tx: Math.cos(th) * r, ty: y, tz: Math.sin(th) * r };
 }
 
+// Hollow Tilted Torus — tube points on a large ring, tilted 25°
 function shapeTorus(i, n) {
-  const ang = (i / n) * Math.PI * 2;
-  const tubeAng = (i * 7.3) % (Math.PI * 2);
-  const bigR = 0.65, smallR = 0.28;
+  const ang     = (i / n) * Math.PI * 2;
+  const tubeAng = (i * 6.5) % (Math.PI * 2);
+  const bigR = 0.62, smallR = 0.30;
+  const tilt = Math.PI / 7; // 25.7° tilt
+  const x0 = (bigR + smallR * Math.cos(tubeAng)) * Math.cos(ang);
+  const y0 = smallR * Math.sin(tubeAng);
+  const z0 = (bigR + smallR * Math.cos(tubeAng)) * Math.sin(ang);
+  // Tilt around X-axis
   return {
-    tx: (bigR + smallR * Math.cos(tubeAng)) * Math.cos(ang),
-    ty: smallR * Math.sin(tubeAng),
-    tz: (bigR + smallR * Math.cos(tubeAng)) * Math.sin(ang)
+    tx: x0,
+    ty: y0 * Math.cos(tilt) - z0 * Math.sin(tilt),
+    tz: y0 * Math.sin(tilt) + z0 * Math.cos(tilt)
   };
 }
 
+// Double Helix Shell — two strands spiralling on a cylinder surface
 function shapeHelix(i, n) {
-  const t = (i / n) * Math.PI * 6;
-  const strand = i % 2 === 0 ? 0 : Math.PI;
-  const helR = 0.5;
+  const t      = (i / n) * Math.PI * 5;
+  const strand = (i % 2 === 0) ? 0 : Math.PI;
+  const helR   = 0.55;
+  const len    = (i / n) * 2 - 1; // -1 → 1 along Y
+  // Push each point to unit sphere: normalize (helR * cos, len, helR * sin)
+  const mag = Math.sqrt(helR * helR + len * len);
+  const sc  = mag > 0 ? (1 / mag) : 1;
   return {
-    tx: helR * Math.cos(t + strand),
-    ty: (i / n) * 2 - 1,
-    tz: helR * Math.sin(t + strand)
+    tx: helR * Math.cos(t + strand) * sc,
+    ty: len * sc,
+    tz: helR * Math.sin(t + strand) * sc
   };
 }
 
+// Harmonic Wave Shell — sinusoidal lattice projected onto the sphere surface
 function shapeWave(i, n) {
-  const col = i % 16, row = Math.floor(i / 16);
-  const u = (col / 15) * 2 - 1;
-  const v = (row / (Math.floor(n / 16) - 1)) * 2 - 1;
-  const amp = 0.35;
-  return {
-    tx: u * 0.9,
-    ty: amp * Math.sin(u * Math.PI * 2.4 + v * Math.PI),
-    tz: v * 0.9
-  };
-}
-
-function shapeCrystal(i, n) {
-  // 8-point octahedron + lattice scatter
-  const octFaces = [
-    [1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1],
-    [0.707,0.707,0],[0.707,-0.707,0],[-0.707,0.707,0],[-0.707,-0.707,0],
-    [0.707,0,0.707],[0.707,0,-0.707],[-0.707,0,0.707],[-0.707,0,-0.707],
-    [0,0.707,0.707],[0,0.707,-0.707],[0,-0.707,0.707],[0,-0.707,-0.707]
-  ];
-  const face = octFaces[i % octFaces.length];
-  const jitter = 0.18;
-  const seed = (i * 1.618) % 1;
-  return {
-    tx: face[0] * 0.82 + (seed - 0.5) * jitter,
-    ty: face[1] * 0.82 + ((i * 0.317) % 1 - 0.5) * jitter,
-    tz: face[2] * 0.82 + ((i * 0.513) % 1 - 0.5) * jitter
-  };
+  const cols = 15;
+  const col  = i % cols;
+  const row  = Math.floor(i / cols);
+  const rows = Math.ceil(n / cols);
+  const u    = (col / (cols - 1)) * 2 - 1;  // -1 → 1
+  const v    = (row / Math.max(rows - 1, 1)) * 2 - 1;
+  const amp  = 0.28;
+  const wy   = amp * Math.sin(u * Math.PI * 2.2 + v * Math.PI * 1.4);
+  // Map (u, wy, v) onto unit sphere surface via normalization
+  const mag  = Math.sqrt(u * u + wy * wy + v * v);
+  const sc   = mag > 0.01 ? (1 / mag) : 1;
+  return { tx: u * sc, ty: wy * sc, tz: v * sc };
 }
 
 function getShapeTarget(shapeKey, i, n) {
   switch (shapeKey) {
-    case "torus":   return shapeTorus(i, n);
-    case "helix":   return shapeHelix(i, n);
-    case "wave":    return shapeWave(i, n);
-    case "crystal": return shapeCrystal(i, n);
-    default:        return shapeFibSphere(i, n);
+    case "torus": return shapeTorus(i, n);
+    case "helix": return shapeHelix(i, n);
+    case "wave":  return shapeWave(i, n);
+    default:      return shapeFibSphere(i, n);
   }
 }
 
-/* ---- 3D Particle ---- */
-class Particle3D {
+/* -------------------------------------------------------------------------- */
+/* Particle                                                                    */
+/* -------------------------------------------------------------------------- */
+class HudParticle {
   constructor(i, n) {
     this.i = i;
     this.n = n;
-    // Start on fibonacci sphere
+    // Start on hollow sphere at mid-radius
     const s = shapeFibSphere(i, n);
-    this.x = s.tx * HUD_SPHERE_R;
-    this.y = s.ty * HUD_SPHERE_R;
-    this.z = s.tz * HUD_SPHERE_R;
-    // Velocity (spring-damped, starts at rest)
+    const r0 = (HUD_R_MAX + HUD_R_MIN) * 0.5;
+    this.x = s.tx * r0;
+    this.y = s.ty * r0;
+    this.z = s.tz * r0;
+    // Spring velocities
     this.vx = 0; this.vy = 0; this.vz = 0;
-    // Organic float offsets
+    // Per-particle variety
     this.driftPhase = Math.random() * Math.PI * 2;
-    this.driftAmp = 1.5 + Math.random() * 2.0;
-    this.driftFreq = 0.0008 + Math.random() * 0.0006;
-    // Visual
-    this.baseSize = 1.0 + Math.random() * 1.4;
-    this.colorPhase = Math.random(); // 0–1 position in palette
-    this.sparkPhase = Math.random() * Math.PI * 2;
-    this.sparkSpeed = 0.04 + Math.random() * 0.06;
-    // Projected (set each frame)
-    this.px = 0; this.py = 0; this.pz = 0;
-    this.screenX = 0; this.screenY = 0;
-    this.screenAlpha = 1; this.screenSize = 1;
+    this.driftAmp   = 0.6 + Math.random() * 0.9;   // subtle organic float
+    this.driftFreq  = 0.00045 + Math.random() * 0.00035;
+    // Size: 1.1px–2.3px range; depth-scaled at projection
+    this.baseRadius  = 1.1 + Math.random() * 1.2;
+    this.colorPhase  = Math.random();               // 0–1 palette position
+    this.sparkPhase  = Math.random() * Math.PI * 2;
+    this.sparkSpeed  = 0.025 + Math.random() * 0.03; // slower sparkle
+    // Projected
+    this.pz       = 0;
+    this.screenX  = 0;
+    this.screenY  = 0;
+    this.screenAlpha = 1;
+    this.screenR  = 1;
   }
 
-  applySpring(tx, ty, tz, stiffness, damping, dt, breathScale, voiceDisplace) {
-    const bx = tx * breathScale + voiceDisplace * (tx);
-    const by = ty * breathScale + voiceDisplace * (ty);
-    const bz = tz * breathScale + voiceDisplace * (tz);
-    this.vx += (bx - this.x) * stiffness * dt;
-    this.vy += (by - this.y) * stiffness * dt;
-    this.vz += (bz - this.z) * stiffness * dt;
-    this.vx *= (1 - damping * dt);
-    this.vy *= (1 - damping * dt);
-    this.vz *= (1 - damping * dt);
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
-    this.z += this.vz * dt;
+  // Low-stiffness spring toward shell target; dt is real seconds clamped to 50ms
+  applySpring(tx, ty, tz, stiffness, damping, dt) {
+    this.vx += (tx - this.x) * stiffness * dt * 60;
+    this.vy += (ty - this.y) * stiffness * dt * 60;
+    this.vz += (tz - this.z) * stiffness * dt * 60;
+    const damp = Math.pow(damping, dt * 60);
+    this.vx *= damp; this.vy *= damp; this.vz *= damp;
+    this.x += this.vx * dt * 60;
+    this.y += this.vy * dt * 60;
+    this.z += this.vz * dt * 60;
   }
 
   project(rotX, rotY, fov, cx, cy, timestamp) {
-    // 3D rotation: Y-axis then X-axis
     const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
     const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-
-    // Organic drift
+    // Organic micro-drift (very small — just a whisper of life)
     const drift = this.driftAmp * Math.sin(timestamp * this.driftFreq + this.driftPhase);
-
-    let px = this.x + drift * 0.3;
-    let py = this.y + drift * 0.5;
-    let pz = this.z + drift * 0.2;
-
+    let px = this.x + drift * 0.15;
+    let py = this.y + drift * 0.20;
+    let pz = this.z + drift * 0.10;
     // Y rotation
     const rx1 = px * cosY - pz * sinY;
     const rz1 = px * sinY + pz * cosY;
     // X rotation
     const ry2 = py * cosX - rz1 * sinX;
     const rz2 = py * sinX + rz1 * cosX;
-
+    // Perspective projection
     this.pz = rz2;
-    const scale = fov / (fov + rz2 + HUD_SPHERE_R);
-    this.screenX = cx + rx1 * scale;
-    this.screenY = cy + ry2 * scale;
-    this.screenSize = this.baseSize * scale * 1.6;
-    // Depth alpha: near = bright, far = dim
-    this.screenAlpha = 0.35 + 0.65 * ((rz2 + HUD_SPHERE_R) / (HUD_SPHERE_R * 2));
+    const perspScale = fov / (fov + rz2 + HUD_R_MAX);
+    this.screenX = cx + rx1 * perspScale;
+    this.screenY = cy + ry2 * perspScale;
+    // Dot radius: 1.1–2.3px by depth
+    const depthT = (rz2 + HUD_R_MAX) / (HUD_R_MAX * 2);  // 0=far, 1=near
+    this.screenR = Math.max(0.5, this.baseRadius * (0.70 + 0.30 * depthT) * perspScale * 2.0);
+    // Alpha: near = bright, far = dim (never zero — shell always visible)
+    this.screenAlpha = 0.30 + 0.70 * depthT;
     this.sparkPhase += this.sparkSpeed;
   }
 }
 
 let hudParticles = [];
 
-/* ---- Palette ---- */
+/* -------------------------------------------------------------------------- */
+/* Dual-theme palette                                                          */
+/* -------------------------------------------------------------------------- */
 function getParticleColor(t, isLightMode) {
   const p = Math.max(0, Math.min(1, t));
   let r, g, b;
   if (isLightMode) {
-    // Jewel tones: deep teal → cobalt → indigo → coral
+    // Deep teal → cobalt → indigo → slate-violet
     if (p < 0.33) {
       const u = p / 0.33;
-      r = Math.round(10 + 19 * u); g = Math.round(130 - 70 * u); b = Math.round(140 + 90 * u);
+      r = Math.round(10  + 19  * u);
+      g = Math.round(130 - 70  * u);
+      b = Math.round(140 + 90  * u);
     } else if (p < 0.66) {
       const u = (p - 0.33) / 0.33;
-      r = Math.round(29 + 95 * u); g = Math.round(60 - 32 * u); b = Math.round(230 - 110 * u);
+      r = Math.round(29  + 71  * u);
+      g = Math.round(60  - 32  * u);
+      b = Math.round(230 - 50  * u);
     } else {
       const u = (p - 0.66) / 0.34;
-      r = Math.round(124 + 110 * u); g = Math.round(28 + 10 * u); b = Math.round(120 - 60 * u);
+      r = Math.round(100 + 30  * u);
+      g = Math.round(28  + 10  * u);
+      b = Math.round(180 - 40  * u);
     }
   } else {
-    // Cyber: bright cyan/white → electric blue → violet-magenta → coral
-    if (p < 0.3) {
-      const u = p / 0.3;
-      r = Math.round(210 - 150 * u); g = Math.round(248 - 60 * u); b = 255;
+    // Cyan/white → electric blue → soft violet
+    if (p < 0.30) {
+      const u = p / 0.30;
+      r = Math.round(210 - 150 * u);
+      g = Math.round(248 - 60  * u);
+      b = 255;
     } else if (p < 0.65) {
-      const u = (p - 0.3) / 0.35;
-      r = Math.round(60 + 140 * u); g = Math.round(188 - 120 * u); b = Math.round(255 - 50 * u);
+      const u = (p - 0.30) / 0.35;
+      r = Math.round(60  + 100 * u);
+      g = Math.round(188 - 100 * u);
+      b = Math.round(255 - 30  * u);
     } else {
       const u = (p - 0.65) / 0.35;
-      r = Math.round(200 + 55 * u); g = Math.round(68 + 48 * u); b = Math.round(205 - 185 * u);
+      r = Math.round(160 + 40  * u);
+      g = Math.round(88  + 20  * u);
+      b = Math.round(225 - 20  * u);
     }
   }
-  return { r: Math.max(0,Math.min(255,r)), g: Math.max(0,Math.min(255,g)), b: Math.max(0,Math.min(255,b)) };
+  return {
+    r: Math.max(0, Math.min(255, r)),
+    g: Math.max(0, Math.min(255, g)),
+    b: Math.max(0, Math.min(255, b))
+  };
 }
 
-/* ---- Main render frame ---- */
-function renderHudFrame(timestamp = 0) {
+/* -------------------------------------------------------------------------- */
+/* Render                                                                      */
+/* -------------------------------------------------------------------------- */
+let _lastFrameTime = 0;
+
+function renderHudFrame(timestamp) {
   const canvas = $("hud-canvas");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  const isLightMode = state.theme === "light";
   const n = hudParticles.length;
   if (n === 0) return;
 
-  // ---- Audio analyser sampling (future TTS) ----
+  // Real delta-time, clamped to 50ms (20fps floor) to avoid jumps on tab-blur wakeup
+  const dtMs = _lastFrameTime > 0 ? Math.min(timestamp - _lastFrameTime, 50) : 16.67;
+  _lastFrameTime = timestamp;
+  const dt = dtMs / 1000; // seconds
+
+  const isLight = state.theme === "light";
+  const cx = HUD_W * 0.5;
+  const cy = HUD_H * 0.5;
+
+  // ---- Audio analyser ----
   if (_hudAudioAnalyser && _hudAnalyserBuf) {
     _hudAudioAnalyser.getByteFrequencyData(_hudAnalyserBuf);
     let sum = 0;
@@ -379,127 +418,140 @@ function renderHudFrame(timestamp = 0) {
     _hudVoiceLevel = Math.min(1, (sum / _hudAnalyserBuf.length) / 128);
   }
 
-  // ---- Speech cadence envelope (responding without AudioAnalyser) ----
+  // ---- Speech cadence envelope (no live analyser) ----
   _syllableStep++;
   if (currentHudState === "responding" && !_hudAudioAnalyser) {
     if (_syllableStep % 7 === 0) {
       _syllableIdx = (_syllableIdx + 1) % SYLLABLE_PATTERN.length;
     }
-    const target = SYLLABLE_PATTERN[_syllableIdx];
-    _syllableEnv += (target - _syllableEnv) * 0.08;
-    _hudVoiceLevel = _syllableEnv * 0.6;
+    _syllableEnv += (SYLLABLE_PATTERN[_syllableIdx] - _syllableEnv) * 0.08;
+    _hudVoiceLevel = _syllableEnv * 0.55;
   } else if (currentHudState !== "responding") {
     _syllableEnv += (0 - _syllableEnv) * 0.05;
     if (!_hudAudioAnalyser) _hudVoiceLevel = _syllableEnv;
   }
 
+  // ---- Breathing hollow shell radius (~6s cycle) ----
+  _breathMs += dtMs;
+  const breathCycle = (_breathMs % HUD_BREATH_PERIOD) / HUD_BREATH_PERIOD; // 0→1
+  // Smooth sine: 0=exhale(R_MAX), 0.5=inhale(R_MIN)
+  const breathT = 0.5 - 0.5 * Math.cos(breathCycle * Math.PI * 2);
+
+  // 'thinking' tightens shell slightly inward; voice adds subtle ripple outward
+  let shellR;
+  if (currentHudState === "thinking") {
+    // Tighter shell: oscillates between R_MIN+4 and R_MAX-10
+    shellR = (HUD_R_MIN + 4) + ((HUD_R_MAX - 10) - (HUD_R_MIN + 4)) * (1 - breathT * 0.6);
+  } else {
+    shellR = HUD_R_MIN + (HUD_R_MAX - HUD_R_MIN) * (1 - breathT);
+  }
+  // Voice ripple: subtle outward push on shell (never blows out)
+  shellR += _hudVoiceLevel * 7;
+  // Hard clamp — shell NEVER collapses to or past hollow center
+  shellR = Math.max(HUD_R_MIN, Math.min(HUD_R_MAX + 8, shellR));
+
   // ---- Shape morphing ----
-  const dt = 1; // logical tick (normalized to 60fps)
   const shapeElapsed = timestamp - _shapeLastMs;
   _shapeMorphT = Math.min(1, shapeElapsed / SHAPE_DURATION_MS);
   if (_shapeMorphT >= 1) {
-    _shapeIdx = (_shapeIdx + 1) % SHAPES.length;
+    _shapeIdx    = (_shapeIdx + 1) % SHAPES.length;
     _shapeLastMs = timestamp;
     _shapeMorphT = 0;
   }
   const morphSmooth = _shapeMorphT * _shapeMorphT * (3 - 2 * _shapeMorphT); // smoothstep
-
-  const curShape = SHAPES[_shapeIdx];
+  const curShape  = SHAPES[_shapeIdx];
   const nextShape = SHAPES[(_shapeIdx + 1) % SHAPES.length];
 
-  // ---- Breathing pulse ----
-  _breathPhase += 0.0012;
-  const breathScale = currentHudState === "thinking"
-    ? 0.78 + 0.10 * Math.sin(_breathPhase * 2.2)
-    : 0.90 + 0.10 * Math.sin(_breathPhase);
-
   // ---- State-driven spring params ----
-  let stiffness, damping, fovDist;
+  let stiffness, damping;
   if (currentHudState === "thinking") {
-    stiffness = 0.14; damping = 0.18; fovDist = 260;
+    stiffness = 0.028; damping = 0.78;
   } else if (currentHudState === "responding") {
-    stiffness = 0.09; damping = 0.12; fovDist = 230;
+    stiffness = 0.018; damping = 0.82;
   } else {
-    stiffness = 0.06; damping = 0.10; fovDist = 250;
+    stiffness = 0.012; damping = 0.86;
   }
 
-  // ---- Rotation inertia ----
+  // ---- Slow baseline rotation with delta-time ----
   if (!_dragActive) {
+    const baseVY = 0.003; // ~0.18 rad/s at 60fps
+    const baseVX = 0.0012;
+    // Inertia decay after drag, then settle to baseline
+    _velY += (baseVY - _velY) * 0.025;
+    _velX += (0      - _velX) * 0.030;
+    // Gentle X tilt correction
+    _rotX += (_rotX < 0.32 ? 0.32 - _rotX : 0) * 0.004;
     _rotY += _velY;
     _rotX += _velX;
-    _velX *= 0.96;
-    // Drift velY back toward baseline
-    _velY += (0.004 - _velY) * 0.015;
-    // Gentle X drift toward slight downward tilt
-    _rotX += (0.28 - _rotX) * 0.005;
   }
 
-  // ---- Update particles ----
-  const voiceDisplace = _hudVoiceLevel * 14;
+  // Perspective FOV — fixed, comfortable depth
+  const fov = 240;
+
+  // ---- Update particles — spring toward hollow shell surface ----
   for (let i = 0; i < n; i++) {
-    const p = hudParticles[i];
-    const cur = getShapeTarget(curShape, i, n);
+    const p   = hudParticles[i];
+    const cur = getShapeTarget(curShape,  i, n);
     const nxt = getShapeTarget(nextShape, i, n);
-    const tx = (cur.tx * (1 - morphSmooth) + nxt.tx * morphSmooth) * HUD_SPHERE_R;
-    const ty = (cur.ty * (1 - morphSmooth) + nxt.ty * morphSmooth) * HUD_SPHERE_R;
-    const tz = (cur.tz * (1 - morphSmooth) + nxt.tz * morphSmooth) * HUD_SPHERE_R;
-    p.applySpring(tx, ty, tz, stiffness, damping, dt, breathScale, voiceDisplace);
-    p.project(_rotX, _rotY, fovDist, HUD_R, HUD_R, timestamp);
+    // Blend shape targets (unit sphere coords) then scale to current shell radius
+    const ux = cur.tx * (1 - morphSmooth) + nxt.tx * morphSmooth;
+    const uy = cur.ty * (1 - morphSmooth) + nxt.ty * morphSmooth;
+    const uz = cur.tz * (1 - morphSmooth) + nxt.tz * morphSmooth;
+    // Normalize to stay exactly on the shell surface
+    const umag = Math.sqrt(ux * ux + uy * uy + uz * uz);
+    const us   = umag > 0.001 ? (shellR / umag) : shellR;
+    p.applySpring(ux * us, uy * us, uz * us, stiffness, damping, dt);
+    p.project(_rotX, _rotY, fov, cx, cy, timestamp);
   }
 
   // ---- Depth sort back-to-front ----
-  hudParticles.sort((a, b) => b.pz - a.pz);
+  hudParticles.sort((a, b) => a.pz - b.pz);
 
-  // ---- Draw ----
-  ctx.clearRect(0, 0, HUD_DIAM, HUD_DIAM);
+  // ---- Draw — crisp dots only, no shadowBlur, no per-particle radial gradients ----
+  ctx.clearRect(0, 0, HUD_W, HUD_H);
 
-  // Subtle central glow dot
-  const glowR = 5 + _hudVoiceLevel * 6;
-  const glowGrad = ctx.createRadialGradient(HUD_R, HUD_R, 0, HUD_R, HUD_R, glowR * 2.5);
-  if (isLightMode) {
-    glowGrad.addColorStop(0, `rgba(14, 116, 144, ${0.35 + _hudVoiceLevel * 0.3})`);
-    glowGrad.addColorStop(1, "rgba(14, 116, 144, 0)");
-  } else {
-    glowGrad.addColorStop(0, `rgba(160, 240, 255, ${0.45 + _hudVoiceLevel * 0.4})`);
-    glowGrad.addColorStop(1, "rgba(160, 240, 255, 0)");
-  }
-  ctx.beginPath();
-  ctx.arc(HUD_R, HUD_R, glowR * 2.5, 0, Math.PI * 2);
-  ctx.fillStyle = glowGrad;
-  ctx.fill();
+  // Dark mode: 'lighter' blend gives natural additive glow at dot intersections
+  // Light mode: 'source-over' keeps dots crisp and opaque on white background
+  ctx.globalCompositeOperation = isLight ? "source-over" : "lighter";
 
-  // Particles — dots only, no lines between them
-  ctx.globalCompositeOperation = isLightMode ? "source-over" : "lighter";
   for (const p of hudParticles) {
-    const sparkle = 0.75 + 0.25 * Math.sin(p.sparkPhase);
-    const alpha = p.screenAlpha * sparkle * (isLightMode ? 0.92 : 0.88);
+    const sparkle = 0.78 + 0.22 * Math.sin(p.sparkPhase);
+    const alpha   = p.screenAlpha * sparkle * (isLight ? 0.88 : 0.82);
     if (alpha < 0.04) continue;
 
-    const { r, g, b } = getParticleColor(p.colorPhase, isLightMode);
-    const sz = Math.max(0.5, p.screenSize);
+    const { r, g, b } = getParticleColor(p.colorPhase, isLight);
+    const sz = Math.max(0.5, p.screenR);
 
-    // Soft glow halo (larger, transparent)
-    if (!isLightMode) {
+    // Dark mode: tiny halo ring (pure fill, no shadowBlur) for depth perception
+    if (!isLight) {
       ctx.beginPath();
-      ctx.arc(p.screenX, p.screenY, sz * 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${r},${g},${b},${alpha * 0.18})`;
+      ctx.arc(p.screenX, p.screenY, sz * 1.9, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${(alpha * 0.14).toFixed(3)})`;
       ctx.fill();
     }
 
-    // Core dot
+    // Core dot — sharp, crisp
     ctx.beginPath();
     ctx.arc(p.screenX, p.screenY, sz, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+    ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
     ctx.fill();
   }
 
   ctx.globalCompositeOperation = "source-over";
 }
 
+/* -------------------------------------------------------------------------- */
+/* Animation loop                                                              */
+/* -------------------------------------------------------------------------- */
 function hudAnimLoop(timestamp) {
-  const canvas = $("hud-canvas");
+  const canvas  = $("hud-canvas");
   const welcome = $("welcome-view");
-  if (!canvas || !welcome || welcome.classList.contains("hidden") || welcome.offsetParent === null || document.hidden) {
+  if (
+    !canvas || !welcome ||
+    welcome.classList.contains("hidden") ||
+    welcome.offsetParent === null ||
+    document.hidden
+  ) {
     stopHudAnimation();
     return;
   }
@@ -509,13 +561,14 @@ function hudAnimLoop(timestamp) {
 
 export function startHudAnimation() {
   if (isHudAnimRunning) return;
-  const canvas = $("hud-canvas");
+  const canvas  = $("hud-canvas");
   const welcome = $("welcome-view");
   if (!canvas || !welcome) return;
   if (welcome.classList.contains("hidden") || welcome.offsetParent === null || document.hidden) return;
   isHudAnimRunning = true;
-  _shapeLastMs = performance.now();
-  hudAnimFrameId = requestAnimationFrame(hudAnimLoop);
+  _lastFrameTime   = 0;
+  _shapeLastMs     = performance.now();
+  hudAnimFrameId   = requestAnimationFrame(hudAnimLoop);
 }
 
 export function stopHudAnimation() {
@@ -528,9 +581,9 @@ export function stopHudAnimation() {
 
 /**
  * Voice sync API — set by TTS or streaming envelope.
- * level: 0.0–1.0 audio energy; bands: optional Float32Array of freq bands.
+ * @param {number} level  0.0–1.0 audio energy
  */
-export function setHudVoiceLevel(level, bands = null) {
+export function setHudVoiceLevel(level, _bands = null) {
   _hudVoiceLevel = Math.max(0, Math.min(1, level));
 }
 
@@ -540,22 +593,22 @@ export function setHudVoiceLevel(level, bands = null) {
  */
 export function bindHudAudioAnalyser(analyserNode) {
   _hudAudioAnalyser = analyserNode || null;
-  _hudAnalyserBuf = analyserNode
+  _hudAnalyserBuf   = analyserNode
     ? new Uint8Array(analyserNode.frequencyBinCount)
     : null;
 }
 
 /**
- * Updates the 3D Particle Entity HUD core state.
- * @param {'idle' | 'thinking' | 'responding'} newState
+ * Updates HUD state and starts animation.
+ * @param {'idle'|'thinking'|'responding'} newState
  */
 export function setHudState(newState) {
-  const core = $("hud-core");
+  const core  = $("hud-core");
   const label = $("hud-state-text");
   if (!core) return;
 
   const validState = ["idle", "thinking", "responding"].includes(newState) ? newState : "idle";
-  currentHudState = validState;
+  currentHudState  = validState;
 
   core.classList.remove("idle", "thinking", "responding");
   core.classList.add(validState);
@@ -563,9 +616,9 @@ export function setHudState(newState) {
 
   if (label) {
     switch (validState) {
-      case "thinking":    label.textContent = "COMPUTING...";    break;
-      case "responding":  label.textContent = "SYNTHESIZING..."; break;
-      default:            label.textContent = "CORE ONLINE";     break;
+      case "thinking":   label.textContent = "COMPUTING...";    break;
+      case "responding": label.textContent = "SYNTHESIZING..."; break;
+      default:           label.textContent = "CORE ONLINE";     break;
     }
   }
 
@@ -576,112 +629,154 @@ export function getHudState() {
   return currentHudState;
 }
 
-/* ---- Drag / Swipe rotation helpers ---- */
+/* -------------------------------------------------------------------------- */
+/* Pointer / touch drag helpers — bound to #hud-core so they work on mobile  */
+/* -------------------------------------------------------------------------- */
 function hudDragStart(x, y) {
   _dragActive = true;
-  _dragLastX = x; _dragLastY = y;
+  _dragLastX  = x; _dragLastY  = y;
   _dragDeltaX = 0; _dragDeltaY = 0;
 }
 function hudDragMove(x, y) {
   if (!_dragActive) return;
   _dragDeltaX = x - _dragLastX;
   _dragDeltaY = y - _dragLastY;
-  _rotY += _dragDeltaX * 0.012;
-  _rotX += _dragDeltaY * 0.012;
+  _rotY += _dragDeltaX * 0.010;
+  _rotX += _dragDeltaY * 0.010;
   _dragLastX = x; _dragLastY = y;
 }
 function hudDragEnd() {
   if (!_dragActive) return;
   _dragActive = false;
-  // Hand momentum to inertia velocities
-  _velY = _dragDeltaX * 0.012;
-  _velX = _dragDeltaY * 0.012;
+  // Hand residual momentum into inertia velocities; they decay back to baseline
+  _velY = _dragDeltaX * 0.010;
+  _velX = _dragDeltaY * 0.010;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Canvas sizing helper — called at init and on ResizeObserver                */
+/* -------------------------------------------------------------------------- */
+function resizeHudCanvas(canvas, core) {
+  // Use CSS size, fall back to 180 if element hasn't painted yet
+  let w = core.offsetWidth  || 180;
+  let h = core.offsetHeight || 180;
+  if (w < 10) w = 180;
+  if (h < 10) h = 180;
+  HUD_W = w;
+  HUD_H = h;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width  = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.width  = `${w}px`;
+  canvas.style.height = `${h}px`;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset before re-scaling
+    ctx.scale(dpr, dpr);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* initHudCore                                                                 */
+/* -------------------------------------------------------------------------- */
 export function initHudCore() {
   const core = $("hud-core");
   if (!core) return;
 
+  // Ensure canvas exists
   let canvas = $("hud-canvas");
   if (!canvas) {
     canvas = document.createElement("canvas");
-    canvas.id = "hud-canvas";
+    canvas.id        = "hud-canvas";
     canvas.className = "hud-canvas";
     core.prepend(canvas);
   }
 
-  // High-DPI setup
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = HUD_DIAM * dpr;
-  canvas.height = HUD_DIAM * dpr;
-  canvas.style.width = `${HUD_DIAM}px`;
-  canvas.style.height = `${HUD_DIAM}px`;
-  const ctx = canvas.getContext("2d");
-  if (ctx) ctx.scale(dpr, dpr);
+  // Initial sizing (waits one rAF so CSS has applied dimensions)
+  requestAnimationFrame(() => {
+    resizeHudCanvas(canvas, core);
+
+    // ResizeObserver — handles mobile viewport resize, orientation change, etc.
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => {
+        resizeHudCanvas(canvas, core);
+        // Re-draw one frame immediately after resize so canvas isn't blank
+        if (!isHudAnimRunning) renderHudFrame(performance.now());
+      });
+      ro.observe(core);
+    }
+  });
 
   // Allow pointer events on canvas for drag
   canvas.style.pointerEvents = "auto";
 
-  // ---- Init particles ----
-  const N = 260;
+  // ---- Init particles (220 crisp points on the hollow shell) ----
+  const N = 220;
   hudParticles = [];
   for (let i = 0; i < N; i++) {
-    hudParticles.push(new Particle3D(i, N));
+    hudParticles.push(new HudParticle(i, N));
   }
 
-  // ---- Drag / Swipe events (canvas) ----
-  canvas.addEventListener("mousedown", (e) => { e.preventDefault(); hudDragStart(e.clientX, e.clientY); });
-  window.addEventListener("mousemove", (e) => { hudDragMove(e.clientX, e.clientY); });
-  window.addEventListener("mouseup", () => { hudDragEnd(); });
+  // ---- Pointer events on #hud-core (covers both canvas and label area) ----
+  // Using setPointerCapture for reliable mobile tracking
+  core.addEventListener("pointerdown", (e) => {
+    if (e.button !== undefined && e.button > 0) return; // right/middle click ignore
+    e.preventDefault();
+    _lastPointerType = e.pointerType;
+    core.setPointerCapture(e.pointerId);
+    hudDragStart(e.clientX, e.clientY);
+  });
+  core.addEventListener("pointermove", (e) => {
+    hudDragMove(e.clientX, e.clientY);
+  });
+  core.addEventListener("pointerup",     () => { hudDragEnd(); });
+  core.addEventListener("pointercancel", () => { hudDragEnd(); });
 
-  canvas.addEventListener("touchstart", (e) => {
+  // Touch fallback (for browsers with partial Pointer Events support)
+  core.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) return;
     e.preventDefault();
     hudDragStart(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: false });
-  canvas.addEventListener("touchmove", (e) => {
+  core.addEventListener("touchmove", (e) => {
     if (e.touches.length !== 1) return;
     e.preventDefault();
     hudDragMove(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: false });
-  canvas.addEventListener("touchend", () => { hudDragEnd(); });
+  core.addEventListener("touchend",    () => { hudDragEnd(); });
+  core.addEventListener("touchcancel", () => { hudDragEnd(); });
 
-  // Click cycles state (only if not a drag)
-  let _clickDragMoved = false;
-  canvas.addEventListener("mousedown", () => { _clickDragMoved = false; });
-  canvas.addEventListener("mousemove", () => { _clickDragMoved = true; });
-  canvas.addEventListener("click", () => {
-    if (_clickDragMoved) return;
+  // Click cycles HUD state (only if not a drag)
+  let _wasDrag = false;
+  core.addEventListener("pointerdown", () => { _wasDrag = false; });
+  core.addEventListener("pointermove", (e) => {
+    if (e.buttons > 0) _wasDrag = true;
+  });
+  core.addEventListener("click", () => {
+    if (_wasDrag) return;
     const states = ["idle", "thinking", "responding"];
     setHudState(states[(states.indexOf(currentHudState) + 1) % states.length]);
   });
 
-  // Send btn / prompt input → thinking state
-  const sendBtn = $("send-btn");
-  const promptInput = $("prompt-input");
-  if (sendBtn) {
-    sendBtn.addEventListener("click", () => {
-      if (promptInput && promptInput.value.trim()) setHudState("thinking");
-    });
-  }
-  if (promptInput) {
-    promptInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey && promptInput.value.trim()) setHudState("thinking");
-    });
-  }
-
   // Tab visibility
   document.addEventListener("visibilitychange", () => {
-    document.hidden ? stopHudAnimation() : startHudAnimation();
+    if (document.hidden) {
+      stopHudAnimation();
+      _lastFrameTime = 0; // reset dt so no jump on return
+    } else {
+      startHudAnimation();
+    }
   });
 
-  // Welcome view observer
+  // Welcome view observer (stops animation when chat view is active)
   const welcome = $("welcome-view");
   if (welcome) {
     const obs = new MutationObserver(() => {
-      (welcome.classList.contains("hidden") || welcome.offsetParent === null)
-        ? stopHudAnimation()
-        : startHudAnimation();
+      if (welcome.classList.contains("hidden") || welcome.offsetParent === null) {
+        stopHudAnimation();
+      } else {
+        startHudAnimation();
+      }
     });
     obs.observe(welcome, { attributes: true, attributeFilter: ["class", "style"] });
   }
@@ -690,11 +785,11 @@ export function initHudCore() {
   startHudAnimation();
 }
 
-window.setHudState = setHudState;
-window.getHudState = getHudState;
-window.startHudAnimation = startHudAnimation;
-window.stopHudAnimation = stopHudAnimation;
-window.setHudVoiceLevel = setHudVoiceLevel;
+window.setHudState        = setHudState;
+window.getHudState        = getHudState;
+window.startHudAnimation  = startHudAnimation;
+window.stopHudAnimation   = stopHudAnimation;
+window.setHudVoiceLevel   = setHudVoiceLevel;
 window.bindHudAudioAnalyser = bindHudAudioAnalyser;
 
 

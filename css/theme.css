@@ -3,37 +3,65 @@
    ============================================================================= */
 
 /* -----------------------------------------------------------------------------
-   1. 3D PARTICLE ENTITY HUD CORE CENTERPIECE
-   Autonomous 3D cloud with shape morphing, voice sync, drag rotation, dual-theme
+   1. 3D HOLLOW POINT-CLOUD SPHERE HUD CORE
+   No clip, no border-radius on canvas, guaranteed mobile dimensions
    ----------------------------------------------------------------------------- */
+
+/* #hud-core: transparent container — NEVER clips the sphere */
+#hud-core,
 .hud-core {
   position: relative;
-  width: 200px;
-  height: 200px;
-  margin: 0 auto 16px;
+  /* Explicit non-collapsible dimensions */
+  width: 210px;
+  height: 210px;
+  min-width: 210px;
+  min-height: 210px;
+  flex-shrink: 0;
+  margin: 0 auto 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Zero visual decoration — sphere paints its own surface */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
   user-select: none;
-  transition: transform 0.18s ease;
-}
-
-.hud-core:hover {
-  transform: scale(1.03);
-}
-
-.hud-canvas {
-  width: 200px;
-  height: 200px;
-  display: block;
-  background: transparent;
-  /* pointer-events managed by JS for drag */
+  /* Mobile swipe: let JS own touch events */
+  touch-action: none;
   cursor: grab;
-  border-radius: 50%;
 }
 
-.hud-canvas:active {
+#hud-core:active,
+.hud-core:active {
   cursor: grabbing;
+}
+
+/* Canvas: fills the core container, no clipping border-radius */
+.hud-canvas {
+  display: block;
+  width: 210px;
+  height: 210px;
+  background: transparent;
+  border-radius: 0;        /* NO circular clip — sphere must not be cropped */
+  overflow: visible;
+  pointer-events: none;    /* Core element captures pointer events instead */
+}
+
+/* Compact on small phones */
+@media (max-width: 480px) {
+  #hud-core,
+  .hud-core {
+    width: 176px;
+    height: 176px;
+    min-width: 176px;
+    min-height: 176px;
+  }
+  .hud-canvas {
+    width: 176px;
+    height: 176px;
+  }
 }
 
 /* Core Status Pill Badge */
