@@ -45,6 +45,7 @@ export async function pullCloudWorkspace() {
     if (Array.isArray(data.schedule)) state.schedule = data.schedule;
     if (Array.isArray(data.todos)) state.todos = data.todos;
     if (Array.isArray(data.notes)) state.notes = data.notes;
+    if (Array.isArray(data.skills)) state.skills = data.skills;
     if (Array.isArray(data.conversations) && data.conversations.length) {
       state.conversations = data.conversations;
       if (!state.conversations.some((c) => c.id === state.activeConvId)) {
@@ -76,6 +77,7 @@ export async function pushCloudWorkspace() {
     const compactConversations = state.conversations.slice(0, 30).map((c) => ({
       id: c.id,
       title: c.title,
+      hasSmartTitle: Boolean(c.hasSmartTitle),
       updatedAt: c.updatedAt,
       messages: (c.messages || [])
         .filter((m) => !m.pending)
@@ -92,6 +94,7 @@ export async function pushCloudWorkspace() {
       schedule: state.schedule,
       todos: state.todos,
       notes: state.notes,
+      skills: state.skills,
       conversations: compactConversations,
       vaultCatalog: state.vault.map((v) => ({
         id: v.id,

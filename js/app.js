@@ -10,6 +10,7 @@ import {
 import { extractFilePayload } from "./files.js";
 import {
   $,
+  applyAssistantIdentity,
   copyToClipboard,
   applyTheme,
   openLeftSidebar,
@@ -106,6 +107,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setChatUnauthorizedHandler(signOutWithReason);
 
   loadLocalData();
+  applyAssistantIdentity();
   applyTheme(state.theme);
 
   if (hasValidSession()) {
@@ -176,7 +178,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       conv.messages.push({
         id: uid(),
         role: "ai",
-        text: "Action cancelled, sir. No items were removed."
+        text: "Action cancelled, sir. No workspace items were modified or removed."
       });
       scheduleCloudSync();
       renderActiveChat();

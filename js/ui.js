@@ -1,6 +1,19 @@
-import { state, STORAGE_KEYS } from "./state.js";
+import { ASSISTANT_NAME, state, STORAGE_KEYS } from "./state.js";
 
 export const $ = (id) => document.getElementById(id);
+
+export function applyAssistantIdentity() {
+  document.title = ASSISTANT_NAME;
+  document.querySelectorAll("[data-assistant-name]").forEach((el) => {
+    el.textContent = ASSISTANT_NAME;
+  });
+  document.querySelectorAll("[data-assistant-template]").forEach((el) => {
+    el.textContent = el.dataset.assistantTemplate.replaceAll("{name}", ASSISTANT_NAME);
+  });
+  document.querySelectorAll("[data-assistant-placeholder]").forEach((el) => {
+    el.placeholder = el.dataset.assistantPlaceholder.replaceAll("{name}", ASSISTANT_NAME);
+  });
+}
 
 export async function copyToClipboard(text, btnEl, defaultLabel = "Copy") {
   try {
@@ -88,7 +101,7 @@ export function closeSelectTextModal() {
 
 export function openConfirmToolModal(summary, pendingTool) {
   state.pendingToolAction = pendingTool;
-  $("confirm-tool-summary").textContent = summary || "Confirm this workspace deletion?";
+  $("confirm-tool-summary").textContent = summary || "Confirm this workspace action?";
   $("confirm-tool-modal").classList.remove("hidden");
 }
 

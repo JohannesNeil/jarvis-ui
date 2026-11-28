@@ -1,4 +1,4 @@
-import { state } from "./state.js";
+import { ASSISTANT_NAME, state } from "./state.js";
 import { escapeHtml } from "./markdown.js";
 import { $, copyToClipboard } from "./ui.js";
 import { scheduleCloudSync } from "./sync.js";
@@ -28,7 +28,7 @@ export function renderSchedule() {
     const isDone = Boolean(item.done);
     const isJarvisMarked = isDone && item.completedBy === "jarvis";
     const checkTitle = isJarvisMarked
-      ? "Marked done by J.A.R.V.I.S. — uncheck and re-check to verify"
+      ? `Marked done by ${ASSISTANT_NAME} — uncheck and re-check to verify`
       : isDone
       ? "Verified by you"
       : "Mark as accomplished";
@@ -77,7 +77,7 @@ export function renderTodos() {
     const isDone = Boolean(item.done);
     const isJarvisMarked = isDone && item.completedBy === "jarvis";
     const checkTitle = isJarvisMarked
-      ? "Marked done by J.A.R.V.I.S. — uncheck and re-check to verify"
+      ? `Marked done by ${ASSISTANT_NAME} — uncheck and re-check to verify`
       : isDone
       ? "Verified by you"
       : "Mark task done";
@@ -140,7 +140,7 @@ export function renderVault() {
   const list = $("vault-list");
   list.innerHTML = "";
   if (!state.vault.length) {
-    list.innerHTML = `<div class="empty-hint">Upload engineering PDFs, PPTX decks, or source files so J.A.R.V.I.S. can reference them in answers.</div>`;
+    list.innerHTML = `<div class="empty-hint">Upload engineering PDFs, PPTX decks, or source files so ${escapeHtml(ASSISTANT_NAME)} can reference them in answers.</div>`;
     return;
   }
   state.vault.forEach((doc) => {

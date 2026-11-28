@@ -1,5 +1,5 @@
-import { state, getAuthHeaders, uid } from "./state.js";
-import { renderMarkdown, typesetMath } from "./markdown.js";
+import { ASSISTANT_NAME, state, getAuthHeaders, uid } from "./state.js";
+import { escapeHtml, renderMarkdown, typesetMath } from "./markdown.js";
 import {
   $,
   copyToClipboard,
@@ -40,9 +40,58 @@ export function createNewConversation(initialTitle = "New chat") {
 function isWakeOnlyPrompt(text) {
   const clean = String(text || "").trim();
   if (!clean || clean.length > 45) return false;
-  return !/report|brief|schedule|task|todo|note|done|finish|complet|submit|mark|check|add|remov|delet|calculat|solve|search|http|who am i|identify|diagram|erd|quiz|remember|time|date|day|today|status|update|next|pending|class|deadline|exam|project|plan|remind|memory|fact|know|help with|explain|write|code|debug|news|headline|latest|current|weather|forecast|image|draw/i.test(
+  return !/report|brief|schedule|task|todo|note|done|finish|complet|submit|mark|check|add|remov|delet|updat|overwrit|edit|calculat|solve|search|http|who am i|identify|diagram|erd|quiz|remember|time|date|day|today|status|update|next|pending|class|deadline|exam|project|plan|remind|memory|fact|know|help with|explain|write|code|debug|news|headline|latest|current|weather|forecast|image|picture|photo|illustration|drawing|sketch|paint|draw|skill/i.test(
     clean
   );
+}
+
+function startInlineConversationRename(conv, item, meta, titleEl) {
+  if (item.dataset.editing === "true") return;
+  item.dataset.editing = "true";
+
+  const currentTitle = conv.title || "New chat";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "conv-rename-input";
+  input.value = currentTitle;
+  input.maxLength = 80;
+  input.setAttribute("aria-label", "Rename chat");
+
+  let finished = false;
+  const finishRename = (shouldSave) => {
+    if (finished) return;
+    finished = true;
+    delete item.dataset.editing;
+    if (shouldSave) {
+      const nextTitle = input.value.trim();
+      if (nextTitle && nextTitle !== conv.title) {
+        conv.title = nextTitle;
+        conv.hasSmartTitle = true;
+        conv.updatedAt = Date.now();
+        scheduleCloudSync();
+      }
+    }
+    renderConversationList();
+  };
+
+  ["click", "dblclick", "pointerdown", "touchstart"].forEach((evtName) => {
+    input.addEventListener(evtName, (e) => e.stopPropagation());
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      finishRename(true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      finishRename(false);
+    }
+  });
+  input.addEventListener("blur", () => finishRename(true));
+
+  meta.replaceChild(input, titleEl);
+  input.focus();
+  input.select();
 }
 
 export function renderConversationList() {
@@ -70,11 +119,32 @@ export function renderConversationList() {
     title.textContent = conv.title || "New chat";
     meta.appendChild(title);
 
+    const actions = document.createElement("div");
+    actions.className = "conv-actions";
+
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "conv-rename-btn";
+    renameBtn.type = "button";
+    renameBtn.title = "Rename chat";
+    renameBtn.setAttribute("aria-label", "Rename chat");
+    renameBtn.innerHTML =
+      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+        `<path d="M12 20h9"></path>` +
+        `<path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>` +
+      `</svg>`;
+    renameBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+    renameBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      startInlineConversationRename(conv, item, meta, title);
+    });
+
     const delBtn = document.createElement("button");
     delBtn.className = "conv-del-btn";
     delBtn.type = "button";
     delBtn.title = "Delete chat";
+    delBtn.setAttribute("aria-label", "Delete chat");
     delBtn.innerHTML = "&times;";
+    delBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
     delBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       state.conversations = state.conversations.filter((c) => c.id !== conv.id);
@@ -86,7 +156,63 @@ export function renderConversationList() {
       renderActiveChat();
     });
 
+    actions.appendChild(renameBtn);
+    actions.appendChild(delBtn);
+
+    meta.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      startInlineConversationRename(conv, item, meta, title);
+    });
+
+    let longPressTimer = null;
+    let longPressTriggered = false;
+    let pressStartX = 0;
+    let pressStartY = 0;
+
+    const clearLongPress = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
+
+    item.addEventListener("pointerdown", (e) => {
+      if (item.dataset.editing === "true") return;
+      if (e.button !== undefined && e.button !== 0) return;
+      if (e.target.closest(".conv-actions")) return;
+      longPressTriggered = false;
+      pressStartX = e.clientX;
+      pressStartY = e.clientY;
+      clearLongPress();
+      longPressTimer = setTimeout(() => {
+        longPressTriggered = true;
+        longPressTimer = null;
+        startInlineConversationRename(conv, item, meta, title);
+      }, 500);
+    });
+
+    item.addEventListener("pointermove", (e) => {
+      if (!longPressTimer) return;
+      if (Math.hypot(e.clientX - pressStartX, e.clientY - pressStartY) > 10) {
+        clearLongPress();
+      }
+    });
+
+    item.addEventListener("pointerup", clearLongPress);
+    item.addEventListener("pointercancel", clearLongPress);
+    item.addEventListener("pointerleave", clearLongPress);
+    item.addEventListener("contextmenu", (e) => {
+      if (longPressTriggered || e.pointerType === "touch") {
+        e.preventDefault();
+      }
+    });
+
     item.addEventListener("click", () => {
+      if (item.dataset.editing === "true") return;
+      if (longPressTriggered) {
+        longPressTriggered = false;
+        return;
+      }
       state.activeConvId = conv.id;
       saveLocalSnapshot();
       renderConversationList();
@@ -95,7 +221,7 @@ export function renderConversationList() {
     });
 
     item.appendChild(meta);
-    item.appendChild(delBtn);
+    item.appendChild(actions);
     listEl.appendChild(item);
   });
 }
@@ -144,7 +270,7 @@ function buildAiMessageElement(msg) {
         `<polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>` +
       `</svg>` +
     `</div>` +
-    `<span>J.A.R.V.I.S.</span>`;
+    `<span>${escapeHtml(ASSISTANT_NAME)}</span>`;
 
   const content = document.createElement("div");
   content.className = "ai-content";
@@ -216,7 +342,7 @@ function buildAiMessageElement(msg) {
   noteBtn.addEventListener("click", () => {
     const snippetTitle =
       (msg.text || "").split("\n")[0].replace(/[#*`$]/g, "").trim().slice(0, 48) ||
-      "J.A.R.V.I.S. Note";
+      `${ASSISTANT_NAME} Note`;
     state.notes.unshift({
       id: uid(),
       title: snippetTitle,
@@ -484,6 +610,7 @@ export async function sendMessage(overrideText = null) {
       if (Array.isArray(data.updatedWorkspace.schedule)) state.schedule = data.updatedWorkspace.schedule;
       if (Array.isArray(data.updatedWorkspace.todos)) state.todos = data.updatedWorkspace.todos;
       if (Array.isArray(data.updatedWorkspace.notes)) state.notes = data.updatedWorkspace.notes;
+      if (Array.isArray(data.updatedWorkspace.skills)) state.skills = data.updatedWorkspace.skills;
       renderSchedule();
       renderTodos();
       renderNotes();
@@ -532,6 +659,7 @@ export async function executeConfirmedTool() {
       if (Array.isArray(data.updatedWorkspace.schedule)) state.schedule = data.updatedWorkspace.schedule;
       if (Array.isArray(data.updatedWorkspace.todos)) state.todos = data.updatedWorkspace.todos;
       if (Array.isArray(data.updatedWorkspace.notes)) state.notes = data.updatedWorkspace.notes;
+      if (Array.isArray(data.updatedWorkspace.skills)) state.skills = data.updatedWorkspace.skills;
       saveLocalSnapshot();
       renderSchedule();
       renderTodos();

@@ -62,7 +62,7 @@
   <div id="server-modal" class="modal-backdrop centered hidden">
     <div class="dialog-card">
       <h2>Backend API Endpoint</h2>
-      <p>Your J.A.R.V.I.S. Cloudflare Worker endpoint URL:</p>
+      <p data-assistant-template="Your {name} Cloudflare Worker endpoint URL:">Your J.A.R.V.I.S. Cloudflare Worker endpoint URL:</p>
       <input id="server-url-input" class="login-input" type="url" placeholder="https://jarvis-brain.hydroflouride4.workers.dev" />
       <div class="select-sheet-actions" style="justify-content: flex-end;">
         <button id="server-close-btn" class="sheet-btn" type="button">Cancel</button>
@@ -80,7 +80,7 @@
             <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
           </svg>
         </div>
-        <span style="font-weight: 600; font-size: 0.95rem;">J.A.R.V.I.S.</span>
+        <span data-assistant-name style="font-weight: 600; font-size: 0.95rem;">J.A.R.V.I.S.</span>
       </div>
       <h1>Sign in to workspace</h1>
       <p>Enter your passcode to unlock your encrypted workspace, schedule, notes, and study vault.</p>
@@ -115,7 +115,7 @@
               <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
             </svg>
           </div>
-          <span>J.A.R.V.I.S.</span>
+          <span data-assistant-name>J.A.R.V.I.S.</span>
         </div>
         <button id="collapse-left-btn" class="subtle-icon-btn" type="button" title="Collapse sidebar">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
@@ -193,8 +193,8 @@
 
       <div class="sidebar-footer">
         <div class="profile-info">
-          <div class="profile-avatar">JN</div>
-          <span class="profile-name">Johannes</span>
+          <div class="profile-avatar">AD</div>
+          <span class="profile-name">ADMIN</span>
         </div>
         <div class="footer-tools">
           <button id="theme-toggle-btn" class="subtle-icon-btn" type="button" title="Toggle theme">
@@ -241,7 +241,7 @@
               <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </button>
-          <span class="header-brand-title">J.A.R.V.I.S.</span>
+          <span class="header-brand-title" data-assistant-name>J.A.R.V.I.S.</span>
           <span class="model-tag">
             <span class="model-tag-dot"></span>
             Engineering &amp; Code
@@ -315,6 +315,7 @@
               id="prompt-input"
               rows="1"
               placeholder="Ask J.A.R.V.I.S..."
+              data-assistant-placeholder="Ask {name}..."
             ></textarea>
 
             <button id="send-btn" type="button" title="Send message" disabled>

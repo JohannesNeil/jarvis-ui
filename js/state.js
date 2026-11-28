@@ -1,3 +1,4 @@
+export const ASSISTANT_NAME = "J.A.R.V.I.S.";
 export const DEFAULT_WORKER_URL = "https://jarvis-brain.hydroflouride4.workers.dev";
 export const MAX_FILE_CHARS = 180000;
 
@@ -12,6 +13,7 @@ export const STORAGE_KEYS = {
   schedule: "jarvis_schedule_v3",
   todos: "jarvis_todos_v3",
   notes: "jarvis_notes_v3",
+  skills: "jarvis_skills_v3",
   vault: "jarvis_vault_v3"
 };
 
@@ -39,6 +41,7 @@ export const state = {
   schedule: [],
   todos: [],
   notes: [],
+  skills: [],
   vault: [],
   pendingAttachment: null,
   pendingToolAction: null,
@@ -102,12 +105,14 @@ export function loadLocalData() {
     state.schedule = JSON.parse(localStorage.getItem(STORAGE_KEYS.schedule) || "[]");
     state.todos = JSON.parse(localStorage.getItem(STORAGE_KEYS.todos) || "[]");
     state.notes = JSON.parse(localStorage.getItem(STORAGE_KEYS.notes) || "[]");
+    state.skills = JSON.parse(localStorage.getItem(STORAGE_KEYS.skills) || "[]");
     state.vault = JSON.parse(localStorage.getItem(STORAGE_KEYS.vault) || "[]");
   } catch {
     state.conversations = [];
     state.schedule = [];
     state.todos = [];
     state.notes = [];
+    state.skills = [];
     state.vault = [];
   }
 }
@@ -118,6 +123,7 @@ export function persistLocal(onCountsUpdated) {
   localStorage.setItem(STORAGE_KEYS.schedule, JSON.stringify(state.schedule));
   localStorage.setItem(STORAGE_KEYS.todos, JSON.stringify(state.todos));
   localStorage.setItem(STORAGE_KEYS.notes, JSON.stringify(state.notes));
+  localStorage.setItem(STORAGE_KEYS.skills, JSON.stringify(state.skills));
   localStorage.setItem(STORAGE_KEYS.vault, JSON.stringify(state.vault));
   if (typeof onCountsUpdated === "function") onCountsUpdated();
 }
